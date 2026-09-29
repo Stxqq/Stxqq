@@ -1,1 +1,1 @@
-<img src="assets/stxq-banner.png" alt="STXQ – weißer Grunge-Schriftzug mit Adler, Ausrufezeichen und Raster-Symbolen auf Schwarz" width="100%" />
+<img src="assets/stxq-banner-marker.png" alt="STXQ – weißer Graffiti-Schriftzug und Symbole auf schwarzem Hintergrund" width="100%" />
