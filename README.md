@@ -1,1 +1,1 @@
-<img src="assets/stxq-banner-marker.png" alt="STXQ – weißer Graffiti-Schriftzug und Symbole auf schwarzem Hintergrund" width="100%" />
+<img src="assets/stxq-binvara-banner.jpg" alt="STXQ und Binvara – weißer Schriftzug auf schwarz-blauem Hintergrund" width="100%" />
