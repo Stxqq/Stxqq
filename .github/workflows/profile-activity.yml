@@ -1,4 +1,4 @@
-name: Öffentliche Profil-Aktivität
+name: Public profile activity
 
 on:
   push:

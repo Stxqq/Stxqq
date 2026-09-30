@@ -41,7 +41,7 @@ test('empty activity remains truthful, accessible, and renders one cell per day'
   const stats = summarize([], now);
   const svg = renderActivity(stats, 0);
   assert.equal(stats.total, 0);
-  assert.match(svg, /0 öffentliche Commits an 0 Tagen/);
+  assert.match(svg, /0 public commits across 0 active days/);
   assert.equal((svg.match(/<title>\d{4}-/g) || []).length, 365);
   assert.doesNotMatch(svg, /<title>2026-10-01/);
 });
