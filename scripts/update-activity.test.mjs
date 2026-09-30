@@ -5,11 +5,11 @@ import { dateWindow, publicRepositories, summarize, renderActivity, githubPages,
 const now = new Date('2026-09-30T11:00:00Z');
 const commit = (sha, date, message = 'Build something', author = 'Stxqq') => ({ sha, author: { login: author }, commit: { author: { date }, message } });
 
-test('calendar covers 365 UTC days and aligns to Monday, including leap years', () => {
+test('calendar covers 365 UTC days and aligns to Sunday, including leap years', () => {
   for (const value of [now, new Date('2024-03-01'), new Date('2026-01-04')]) {
     const { start, end, gridStart } = dateWindow(value);
     assert.equal((end - start) / 86_400_000, 364);
-    assert.equal(gridStart.getUTCDay(), 1);
+    assert.equal(gridStart.getUTCDay(), 0);
     assert.equal(start.getUTCHours(), 0);
     assert.ok(gridStart <= start);
   }

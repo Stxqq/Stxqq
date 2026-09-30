@@ -5,7 +5,7 @@ export const OWNER = 'Stxqq';
 export const UPDATE_MESSAGE = 'chore: refresh public profile activity [skip ci]';
 const DAY = 86_400_000;
 const ROOT = new URL('../', import.meta.url);
-const COLORS = ['#283345', '#3670ad', '#549aea', '#88c3ff', '#d3edff'];
+const COLORS = ['#161b22', '#0e4429', '#006d32', '#26a641', '#39d353'];
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const key = (date) => date.toISOString().slice(0, 10);
 const escape = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[c]);
@@ -13,7 +13,7 @@ const escape = (value) => String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp
 export function dateWindow(now = new Date()) {
   const end = new Date(`${key(now)}T00:00:00Z`);
   const start = new Date(+end - 364 * DAY);
-  const gridStart = new Date(+start - ((start.getUTCDay() + 6) % 7) * DAY);
+  const gridStart = new Date(+start - start.getUTCDay() * DAY);
   return { start, end, gridStart };
 }
 
@@ -56,66 +56,44 @@ export function renderActivity(stats, repositoryCount) {
   let labels = '';
   let lastMonth = -1;
   for (let col = 0; col < columns; col++) {
-    const monday = new Date(+gridStart + col * 7 * DAY);
-    const thursday = new Date(+monday + 3 * DAY);
-    if (thursday.getUTCMonth() !== lastMonth && col < columns - 2) {
-      labels += `<text x="${91 + col * 20}" y="168">${MONTHS[thursday.getUTCMonth()]}</text>`;
-      lastMonth = thursday.getUTCMonth();
+    const sunday = new Date(+gridStart + col * 7 * DAY);
+    const midweek = new Date(+sunday + 3 * DAY);
+    if (midweek.getUTCMonth() !== lastMonth && col < columns - 2) {
+      labels += `<text x="${46 + col * 13}" y="68">${MONTHS[midweek.getUTCMonth()]}</text>`;
+      lastMonth = midweek.getUTCMonth();
     }
+    let week = '';
     for (let row = 0; row < 7; row++) {
-      const date = new Date(+monday + row * DAY);
+      const date = new Date(+sunday + row * DAY);
       const count = byDate.get(key(date));
       if (count === undefined) continue;
-      const intensity = level(count);
-      const x = 91 + col * 20;
-      const y = 190 + row * 20;
-      const today = key(date) === key(end);
-      cells += `<g><title>${key(date)}: ${count} public ${count === 1 ? 'commit' : 'commits'}${today ? ' (today)' : ''}</title><rect x="${x}" y="${y}" width="15" height="15" rx="4.5" fill="url(#cell-${intensity})" stroke="${today ? '#e3f2ff' : '#d7eaff'}" stroke-opacity="${today ? '.8' : intensity ? '.28' : '.07'}" stroke-width="${today ? '1.2' : '.65'}"/>${intensity ? `<path d="M${x + 4} ${y + 1.7}h7" stroke="#fff" stroke-opacity=".36" stroke-width=".8" stroke-linecap="round"/>` : ''}</g>`;
+      week += `<rect x="${46 + col * 13}" y="${74 + row * 13}" width="10" height="10" rx="2" fill="${COLORS[level(count)]}" stroke="#ffffff" stroke-opacity=".04" stroke-width=".5"><title>${key(date)}: ${count} public ${count === 1 ? 'commit' : 'commits'}</title></rect>`;
     }
+    cells += `<g class="week" style="animation-delay:${col * 18}ms">${week}</g>`;
   }
-  const metrics = [[String(total), 'Public commits'], [String(activeDays), 'Active days'], [String(longestStreak), 'Longest streak', 'days'], [String(repositoryCount), 'Public repositories']];
   const formattedDate = (date) => new Intl.DateTimeFormat('en-US', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).format(date);
   const description = `${total} public commits across ${activeDays} active days. Longest streak: ${longestStreak} days. ${repositoryCount} public owned repositories. ${formattedDate(start)} to ${formattedDate(end)}, UTC. Default branches only; automated profile updates excluded.`;
-  // GitHub renders a self-contained image. Layered gradients and edge reflections
-  // create glass depth without scripts, external fonts, or external assets.
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="590" viewBox="0 0 1200 590" role="img" aria-labelledby="title desc">
+  // Native GitHub proportions and Sunday-first rows. The self-contained CSS
+  // animates once inside an SVG image; unsupported/reduced-motion viewers get
+  // the fully visible static chart. No data is changed by the animation.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="204" viewBox="0 0 900 204" role="img" aria-labelledby="title desc">
 <title id="title">STXQ · Public activity</title><desc id="desc">${escape(description)}</desc>
-<defs>
-  <linearGradient id="base" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#283343"/><stop offset=".43" stop-color="#121c2b"/><stop offset="1" stop-color="#0e1520"/></linearGradient>
-  <radialGradient id="light" cx=".05" cy="0" r=".95"><stop stop-color="#dceeff" stop-opacity=".22"/><stop offset=".55" stop-color="#bfdcff" stop-opacity=".015"/><stop offset="1" stop-color="#bfdcff" stop-opacity="0"/></radialGradient>
-  <radialGradient id="blue" cx=".9" cy="1" r=".85"><stop stop-color="#357fe0" stop-opacity=".32"/><stop offset=".66" stop-color="#357fe0" stop-opacity=".04"/><stop offset="1" stop-color="#357fe0" stop-opacity="0"/></radialGradient>
-  <linearGradient id="edge" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#f1f8ff" stop-opacity=".65"/><stop offset=".22" stop-color="#c9e2ff" stop-opacity=".16"/><stop offset=".54" stop-color="#b0d6ff" stop-opacity=".055"/><stop offset=".83" stop-color="#d7ecff" stop-opacity=".26"/><stop offset="1" stop-color="#ecf7ff" stop-opacity=".48"/></linearGradient>
-  <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".09"/><stop offset=".5" stop-color="#c5dcff" stop-opacity=".025"/><stop offset="1" stop-color="#fff" stop-opacity=".065"/></linearGradient>
-  <linearGradient id="well" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#091321" stop-opacity=".5"/><stop offset="1" stop-color="#111f34" stop-opacity=".24"/></linearGradient>
-  <linearGradient id="rim" x1="0" y1="0" x2="1" y2=".8"><stop stop-color="#fff" stop-opacity=".25"/><stop offset=".45" stop-color="#dfedff" stop-opacity=".045"/><stop offset="1" stop-color="#bfdcff" stop-opacity=".18"/></linearGradient>
-  <linearGradient id="shine"><stop stop-color="#fff" stop-opacity="0"/><stop offset=".34" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
-  <linearGradient id="numbers" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d3e2f4"/></linearGradient>
-  ${COLORS.map((color, i) => `<linearGradient id="cell-${i}" x1="0" y1="0" x2=".6" y2="1"><stop stop-color="${i ? COLORS[Math.min(4, i + 1)] : '#8299b7'}" stop-opacity="${i ? '1' : '.13'}"/><stop offset="1" stop-color="${color}" stop-opacity="${i ? '1' : '.42'}"/></linearGradient>`).join('')}
-</defs>
-<rect x="6" y="6" width="1188" height="578" rx="36" fill="url(#base)"/>
-<rect x="6" y="6" width="1188" height="578" rx="36" fill="url(#light)"/>
-<rect x="6" y="6" width="1188" height="578" rx="36" fill="url(#blue)"/>
-<rect x="6.75" y="6.75" width="1186.5" height="576.5" rx="35.25" fill="none" stroke="url(#edge)" stroke-width="1.5"/>
-<rect x="10" y="10" width="1180" height="570" rx="32" fill="none" stroke="#fff" stroke-opacity=".035"/>
-<path d="M52 8H780" stroke="url(#shine)" stroke-width="1.5"/>
-<g font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Arial, sans-serif">
-<text x="48" y="72" fill="#f3f7fe" font-size="34" font-weight="600" letter-spacing="-1">Activity</text>
-<text x="49" y="101" fill="#b5c3d6" font-size="16">A year of public code.</text>
-<rect x="920" y="40" width="232" height="37" rx="18.5" fill="url(#glass)" stroke="url(#rim)"/>
-<circle cx="940" cy="58.5" r="3" fill="#c9e3ff"/>
-<text x="955" y="63" fill="#e1ebf9" font-size="14">Updated ${formattedDate(end)}</text>
-<text x="1151" y="101" text-anchor="end" fill="#b5c3d6" font-size="14">${formattedDate(start)} – ${formattedDate(end)}</text>
-<rect x="41" y="135" width="1118" height="246" rx="23" fill="url(#well)" stroke="url(#rim)"/>
-<g fill="#becadd" font-size="14">${labels}<text x="55" y="202">M</text><text x="55" y="242">W</text><text x="55" y="282">F</text><text x="55" y="322">S</text></g>
+<style>
+  @keyframes reveal { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+  @media (prefers-reduced-motion: no-preference) {
+    .week { animation-name: reveal; animation-duration: 560ms; animation-timing-function: cubic-bezier(.16,1,.3,1); animation-fill-mode: both; animation-iteration-count: 1; }
+  }
+</style>
+<rect width="900" height="204" fill="#0d1117"/>
+<g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif">
+<text x="0" y="24" font-size="16" fill="#e6edf3">${total} public ${total === 1 ? 'commit' : 'commits'} in the last year</text>
+<rect x=".5" y="39.5" width="745" height="160" rx="6" fill="none" stroke="#3d444d"/>
+<g font-size="12" fill="#e6edf3">${labels}<text x="15" y="95">Mon</text><text x="15" y="121">Wed</text><text x="15" y="147">Fri</text></g>
 ${cells}
-<rect x="62" y="346" width="12" height="12" rx="3.5" fill="none" stroke="#d6e9ff" stroke-opacity=".8"/>
-<text x="84" y="357" fill="#afc0d5" font-size="13">Today</text>
-<g fill="#afc0d5" font-size="13"><text x="932" y="357">Less</text>${COLORS.map((color, i) => `<rect x="${975 + i * 23}" y="345" width="15" height="15" rx="4.5" fill="url(#cell-${i})" stroke="#e0edff" stroke-opacity=".14" stroke-width=".65"/>`).join('')}<text x="1101" y="357">More</text></g>
-<rect x="41" y="403" width="1118" height="132" rx="25" fill="url(#glass)" stroke="url(#rim)"/>
-<path d="M318 434v70M597 434v70M876 434v70" stroke="#d1e3ff" stroke-opacity=".12"/>
-${metrics.map(([value, label, unit], i) => `<text x="${69 + i * 279}" y="466" font-size="41" font-weight="500" letter-spacing="-1" fill="url(#numbers)">${value}${unit ? `<tspan font-size="16" letter-spacing="0" dx="9" fill="#b7c8df">${unit}</tspan>` : ''}</text><text x="${70 + i * 279}" y="502" font-size="15" fill="#c2d0e3">${label}</text>`).join('')}
-<text x="49" y="565" fill="#a0b3ce" font-size="12.5">Public repositories · Default branches · UTC</text>
-<text x="1151" y="565" text-anchor="end" fill="#bbcee7" font-size="12.5">STXQ</text>
+<text x="41" y="183" fill="#9198a1" font-size="12">Learn how we count public commits</text>
+<g font-size="12" fill="#9198a1"><text x="576" y="183">Less</text>${COLORS.map((color, i) => `<rect x="${607 + i * 14}" y="173" width="10" height="10" rx="2" fill="${color}"/>`).join('')}<text x="677" y="183">More</text></g>
+<rect x="778" y="7" width="118" height="34" rx="6" fill="#1f6feb"/>
+<text x="794" y="29" fill="#ffffff" font-size="13" font-weight="500">${end.getUTCFullYear()}</text>
 </g></svg>\n`;
 }
 

@@ -10,8 +10,8 @@ I build apps for everyday work, from the first sketch to the finished product. I
 
 <br />
 
-<a href="https://github.com/Stxqq?tab=repositories">
-  <img src="assets/activity.svg" alt="STXQ public activity: a 365-day heatmap, public commits, active days, longest streak, and public repositories. Updated daily." width="100%" />
+<a href="scripts/README.md">
+  <img src="assets/activity.svg" alt="STXQ public commits in the last year. A green GitHub-style heatmap with a single left-to-right reveal animation. Updated daily." width="100%" />
 </a>
 
 <details>

@@ -10,13 +10,15 @@ The activity card is generated in this repository. It needs no external statisti
 - Duplicate commit SHAs count once.
 - The automated commit `chore: refresh public profile activity [skip ci]` is excluded.
 - Color levels represent 0, 1–2, 3–5, 6–9, and 10+ commits per day.
-- The outlined cell marks today; its fill still represents the real commit count.
+- Calendar rows run Sunday to Saturday, matching GitHub’s native contribution chart.
 
 This is a **commit heatmap**. It does not include issues, pull requests, repositories owned by others, other branches, or private activity. It therefore differs from GitHub's contribution graph. Profile privacy settings are left unchanged.
 
 ## Rendering
 
-The self-contained SVG uses layered translucent gradients, fine edge highlights, and blue glass cells. It works as a normal GitHub README image without scripts, external fonts, or animation. Counts remain legible over a dark glass surface.
+The self-contained SVG follows GitHub’s dark contribution chart: flat background, native green levels, compact square cells, month labels, and a year label. It is a static image with a one-time, left-to-right reveal animation lasting about 1.5 seconds. The animation leaves every date and count unchanged.
+
+Animation only runs when the viewer has no reduced-motion preference. Reduced-motion settings and renderers without CSS animation support show the complete static chart immediately. No scripts or external fonts are needed. The year label identifies the current period; it is not an interactive year selector. Clicking the image opens this explanation.
 
 ## Updates
 
