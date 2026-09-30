@@ -2,6 +2,23 @@
 
 <br />
 
+<!-- aevori-feature:start -->
+## Building AEVORI
+
+**Local AI chat. A personal agent. Your Mac.**
+
+I'm building AEVORI: an Ollama-powered workspace with customizable characters,
+controllable memory, notes, and tasks. It runs on your Mac and opens in your browser.
+
+[Download the macOS preview](https://github.com/Stxqq/aevori-app/releases/tag/v0.3.0)
+&nbsp;·&nbsp; [Watch Aeri reply](https://github.com/Stxqq/aevori-app#see-aeri-reply)
+&nbsp;·&nbsp; [Explore the source](https://github.com/Stxqq/aevori-app)
+
+Apple silicon and Intel downloads · English interface · Ollama models installed separately
+<!-- aevori-feature:end -->
+
+<br />
+
 ## Hi, I'm Stefan.
 
 I build apps for everyday work, from the first sketch to the finished product. I care about clear interfaces, thoughtful interactions, and the small details that make software feel good to use.
