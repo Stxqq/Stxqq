@@ -1,0 +1,42 @@
+name: Öffentliche Profil-Aktivität
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: profile-activity
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Verify activity aggregation
+        run: node --test scripts/update-activity.test.mjs
+      - name: Fetch public activity and render card
+        run: node scripts/update-activity.mjs
+      - name: Save updated card as Stefan
+        run: |
+          if git diff --quiet -- assets/activity.svg; then
+            echo "Activity card is already current."
+            exit 0
+          fi
+          git config user.name "Stefan"
+          git config user.email "247887540+Stxqq@users.noreply.github.com"
+          git add assets/activity.svg
+          git commit -m "chore: refresh public profile activity [skip ci]"
+          git push origin HEAD:main
