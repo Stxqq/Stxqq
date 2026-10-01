@@ -27,6 +27,45 @@ I build apps for everyday work, from the first sketch to the finished product. I
 
 <br />
 
+<!-- projects:start -->
+## Open-source projects
+
+Built from scratch, no frameworks. Each one runs live in the browser.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="https://stxqq.github.io/self-driving-car/"><img src="https://raw.githubusercontent.com/Stxqq/self-driving-car/main/.github/assets/social.png" alt="Self-driving car" width="100%" /></a>
+<br /><b>Self-driving car</b><br />
+<sub>A neural network evolved in the browser that signals, overtakes and keeps right.</sub><br />
+<sub><a href="https://stxqq.github.io/self-driving-car/">Live demo</a> &nbsp;·&nbsp; <a href="https://github.com/Stxqq/self-driving-car">Source</a></sub>
+</td>
+<td width="50%" valign="top">
+<a href="https://stxqq.github.io/bytepair/"><img src="https://raw.githubusercontent.com/Stxqq/bytepair/main/.github/assets/social.png" alt="bytepair" width="100%" /></a>
+<br /><b>bytepair</b><br />
+<sub>The GPT-4 tokenizer from scratch in Python, identical to tiktoken.</sub><br />
+<sub><a href="https://stxqq.github.io/bytepair/">Live demo</a> &nbsp;·&nbsp; <a href="https://github.com/Stxqq/bytepair">Source</a></sub>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+<a href="https://stxqq.github.io/conveyor/"><img src="https://raw.githubusercontent.com/Stxqq/conveyor/main/.github/assets/social.png" alt="conveyor" width="100%" /></a>
+<br /><b>conveyor</b><br />
+<sub>A small ML pipeline engine with caching, lineage and a live DAG view.</sub><br />
+<sub><a href="https://stxqq.github.io/conveyor/">Live demo</a> &nbsp;·&nbsp; <a href="https://github.com/Stxqq/conveyor">Source</a></sub>
+</td>
+<td width="50%" valign="top">
+<a href="https://stxqq.github.io/pocket-gpt/"><img src="https://raw.githubusercontent.com/Stxqq/pocket-gpt/main/.github/assets/social.png" alt="pocket-gpt" width="100%" /></a>
+<br /><b>pocket-gpt</b><br />
+<sub>A GPT trained from scratch in NumPy that runs right in your browser.</sub><br />
+<sub><a href="https://stxqq.github.io/pocket-gpt/">Live demo</a> &nbsp;·&nbsp; <a href="https://github.com/Stxqq/pocket-gpt">Source</a></sub>
+</td>
+</tr>
+</table>
+<!-- projects:end -->
+
+<br />
+
 <a href="scripts/README.md">
   <img src="assets/activity.svg" alt="STXQ public commits in the last year. A green GitHub-style heatmap with a single left-to-right reveal animation. Updated daily." width="100%" />
 </a>
