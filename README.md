@@ -17,6 +17,14 @@ Built from scratch, no frameworks. Each one runs live in the browser.
 
 <table>
 <tr>
+<td colspan="2" valign="top">
+<a href="https://stxqq.github.io/forklift/"><img src="https://raw.githubusercontent.com/Stxqq/forklift/main/.github/assets/social.png" alt="forklift" width="100%" /></a>
+<br /><img src="assets/projects/forklift.png" width="30" align="left" alt="" /><b>forklift</b> &nbsp;<sub>new</sub><br />
+<sub>A forklift robot works a warehouse: plans routes, lifts packages and really decodes their QR labels from pixels.</sub><br />
+<sub><a href="https://stxqq.github.io/forklift/">Live demo</a> &nbsp;·&nbsp; <a href="https://github.com/Stxqq/forklift">Source</a></sub>
+</td>
+</tr>
+<tr>
 <td width="50%" valign="top">
 <a href="https://stxqq.github.io/self-driving-car/"><img src="https://raw.githubusercontent.com/Stxqq/self-driving-car/main/.github/assets/social.png" alt="Self-driving car" width="100%" /></a>
 <br /><img src="assets/projects/self-driving-car.png" width="30" align="left" alt="" /><b>Self-driving car</b><br />
