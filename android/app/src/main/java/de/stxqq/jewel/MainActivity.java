@@ -442,6 +442,34 @@ public class MainActivity extends Activity {
         @JavascriptInterface public void seekTo(long ms) {
             main.post(() -> { if (controller != null) controller.getTransportControls().seekTo(ms); });
         }
+        /** Small GET for the lyrics lookup (LRCLIB only); answers via NativeMedia.onHttp. */
+        @JavascriptInterface public void httpGet(String id, String url) {
+            io.execute(() -> {
+                int status = 0;
+                String body = "";
+                try {
+                    URL u = new URL(url);
+                    if (!"https".equals(u.getProtocol()) || !"lrclib.net".equals(u.getHost())) throw new SecurityException(url);
+                    HttpURLConnection c = (HttpURLConnection) u.openConnection();
+                    c.setConnectTimeout(8000);
+                    c.setReadTimeout(10000);
+                    c.setRequestProperty("User-Agent", "JewelCD/1.3 (https://github.com/Stxqq/Stxqq)");
+                    status = c.getResponseCode();
+                    InputStream in = status < 400 ? c.getInputStream() : c.getErrorStream();
+                    if (in != null) {
+                        try (InputStream s = in) {
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            byte[] buf = new byte[8192];
+                            int n;
+                            while ((n = s.read(buf)) > 0) out.write(buf, 0, n);
+                            body = out.toString("UTF-8");
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+                js("window.NativeMedia&&NativeMedia.onHttp(" + JSONObject.quote(id) + "," + status + "," + JSONObject.quote(body) + ")");
+            });
+        }
         @JavascriptInterface public void openAutoStart() {
             main.post(() -> {
                 try {

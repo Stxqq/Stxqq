@@ -35,13 +35,14 @@ body {
 }
 #gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; touch-action: manipulation; }
 .app {
-  position: fixed; inset: 0;
+  position: fixed; inset: 0; z-index: 6;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
   padding-inline: 16px; padding-block: 12px calc(16px + env(safe-area-inset-bottom, 0px));
   gap: 10px; box-sizing: border-box; pointer-events: none;
 }
 .app > * { pointer-events: auto; }
 .hint { font-size: .78rem; color: var(--muted); letter-spacing: .02em; margin: 0; text-align: center; pointer-events: none; }
+.hint { display: none !important; }
 .np, .hint { transition: opacity .5s; }
 .app.is-open .np, .app.is-open .hint { opacity: 0; pointer-events: none; }
 .np { width: min(560px, 100%); display: grid; gap: 6px; text-align: center; }
@@ -87,14 +88,68 @@ body {
 .ctl:hover:not(.play) { background: var(--hover); }
 .thumb:focus-visible, .ctl:focus-visible, .btn:focus-visible, .field input:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
 
-.sheet-wrap { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding-inline: 16px; background: rgba(245, 246, 248, .6); backdrop-filter: blur(6px); }
-.sheet {
-  width: min(440px, 100%); max-height: calc(100% - 32px); overflow-y: auto;
-  background: var(--surface); border-radius: 18px; box-shadow: 0 20px 60px rgba(20, 24, 34, .18);
-  padding: 20px; box-sizing: border-box; display: grid; gap: 14px; user-select: text;
+.wiz {
+  position: fixed; inset: 0; z-index: 20; background: #fff; color: var(--fg);
+  --t: 50%; --r: 50%; --b: 50%; --l: 50%; --rad: 30px;
+  clip-path: inset(var(--t) var(--r) var(--b) var(--l) round var(--rad));
+  transition: clip-path .75s cubic-bezier(.72, 0, .18, 1);
 }
-.sheet h2 { margin: 0; font-size: 1.15rem; font-weight: 600; }
-.sheet p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
+.wiz.full { clip-path: inset(0 0 0 0 round 0); }
+.wiz-in {
+  height: 100%; box-sizing: border-box; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 40px;
+  padding-inline: max(24px, 6vw); padding-block: 24px; opacity: 0; transform: translateY(14px);
+  transition: opacity .45s ease, transform .6s cubic-bezier(.22, 1, .36, 1);
+}
+.wiz.full .wiz-in { opacity: 1; transform: none; transition-delay: .4s; }
+.wiz-x { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--hover); color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.wiz-x svg { width: 22px; height: 22px; fill: currentColor; }
+.wiz-stage { position: relative; display: grid; place-items: center; height: min(70vh, 460px); perspective: 1100px; }
+.cd3d { --cover: none; --tilt: 58deg; --lift: 0px; --size: min(34vw, 46vh, 320px);
+  position: relative; width: var(--size); height: var(--size); transform-style: preserve-3d;
+  transform: translateY(var(--lift)) rotateX(var(--tilt)) rotateZ(-14deg); transition: transform 1s cubic-bezier(.22, 1, .36, 1); animation: cdFloat 4s ease-in-out infinite; }
+.cd3d[data-step="2"] { --tilt: 18deg; --lift: -10px; }
+.cd3d[data-step="3"] { --tilt: 64deg; }
+.cd3d[data-step="4"] { --tilt: 0deg; --lift: -14px; }
+@keyframes cdFloat { 50% { translate: 0 -10px; } }
+.cd3d-disc, .cd3d-sheen, .cd3d-hub { position: absolute; inset: 0; border-radius: 50%; }
+.cd3d-disc { background: #111 var(--cover) center / cover no-repeat;
+  -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.4%); mask: radial-gradient(circle, transparent 0 7%, #000 7.4%);
+  box-shadow: 0 0 0 3px #d9dde3 inset, 0 0 0 1.5px rgba(20,24,34,.25); animation: cdSpin 7s linear infinite; }
+.cd3d[data-step="4"] .cd3d-disc { animation-duration: .7s; }
+@keyframes cdSpin { to { transform: rotate(360deg); } }
+.cd3d-sheen { pointer-events: none; mix-blend-mode: screen;
+  -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.4%); mask: radial-gradient(circle, transparent 0 7%, #000 7.4%);
+  background: conic-gradient(from 20deg, transparent 0 20deg, rgba(255,255,255,.45) 40deg, rgba(150,220,255,.25) 55deg, transparent 80deg 200deg, rgba(255,255,255,.35) 225deg, rgba(255,170,220,.2) 240deg, transparent 265deg); }
+.cd3d-hub { inset: 34%; background: radial-gradient(circle, transparent 0 20%, rgba(20,24,34,.25) 21% 23%, rgba(240,242,246,.7) 24% 60%, rgba(20,24,34,.2) 61% 63%, rgba(240,242,246,.35) 64% 97%, rgba(20,24,34,.25) 98%); }
+.cd3d-shadow { position: absolute; left: 50%; top: 66%; width: min(30vw, 280px); height: 46px; margin-left: min(-15vw, -140px); border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(20,24,34,.28), transparent 70%); filter: blur(6px); animation: shFloat 4s ease-in-out infinite; }
+@keyframes shFloat { 50% { transform: scale(.9); opacity: .7; } }
+.wiz-cdname { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.wiz-panel { display: grid; gap: 14px; max-width: 460px; min-width: 0; }
+.wiz-dots { display: flex; gap: 6px; }
+.wiz-dots span { width: 22px; height: 4px; border-radius: 4px; background: var(--hover); transition: background .4s, width .4s; }
+.wiz-dots span.on { background: var(--fg); width: 34px; }
+.wiz-kicker { margin: 0; font-family: var(--font-mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.wiz-step { display: grid; gap: 14px; animation: stepIn .55s cubic-bezier(.22, 1, .36, 1); }
+@keyframes stepIn { from { opacity: 0; transform: translateX(24px); } }
+.wiz-step h2 { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.4rem); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.wiz-step p { margin: 0; color: var(--muted); line-height: 1.5; }
+.wiz-step input[type="text"], .paste textarea { font: inherit; font-size: 1.15rem; padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; box-sizing: border-box; }
+.paste textarea { font-size: .9rem; margin-top: 10px; resize: vertical; }
+.paste summary { cursor: pointer; color: var(--muted); font-size: .9rem; }
+.pick-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.pick { position: relative; display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding-inline: 22px; border-radius: 999px; background: var(--ink); color: var(--ink-fg); font-weight: 600; cursor: pointer; overflow: hidden; }
+.pick.ghost { background: var(--hover); color: var(--fg); }
+.pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.pick:focus-within { outline: 2px solid var(--fg); outline-offset: 2px; }
+.wiz-files { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 22vh; overflow-y: auto; font-size: .88rem; color: var(--muted); }
+.wiz-files li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.burn { height: 8px; border-radius: 8px; background: var(--hover); overflow: hidden; }
+.burn-fill { height: 100%; width: 0; background: var(--fg); border-radius: 8px; transition: width .5s; }
+.wiz-nav { display: flex; gap: 10px; }
+.wiz-nav .btn { min-height: 52px; padding-inline: 26px; font-size: 1rem; }
+@media (max-width: 720px) { .wiz-in { grid-template-columns: 1fr; align-content: center; gap: 12px; } .wiz-stage { height: 34vh; } .cd3d { --size: min(46vw, 30vh); } }
+@media (prefers-reduced-motion: reduce) { .wiz { transition: none; } .cd3d, .cd3d-disc, .cd3d-shadow { animation: none; } }
 .field { display: grid; gap: 6px; font-size: .8rem; font-weight: 500; }
 .field input[type="text"] { font: inherit; font-size: .95rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .field textarea { font: inherit; font-size: .85rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
@@ -117,11 +172,54 @@ body {
 }
 .ctl.add.pulse { color: var(--ink-fg); background: var(--ink); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.12); } }
+.lyrics {
+  position: fixed; inset: 0; z-index: 5; overflow: hidden; color: #fff;
+  display: grid; grid-template-columns: minmax(0, 300px) minmax(0, 1fr); gap: 48px; align-items: center;
+  padding-inline: max(32px, 5vw); padding-block: 24px 120px; box-sizing: border-box;
+  background: #15161a; animation: lyIn .5s cubic-bezier(.22, 1, .36, 1);
+}
+@keyframes lyIn { from { opacity: 0; transform: scale(1.02); } }
+.ly-bg { position: absolute; inset: -20%; background: center / cover no-repeat; filter: blur(70px) saturate(1.6) brightness(.55); transform: scale(1.1); transition: background-image .6s; }
+.ly-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.45)); }
+.ly-head { position: relative; display: grid; gap: 18px; align-content: center; }
+.ly-cover { width: 100%; aspect-ratio: 1; border-radius: 14px; object-fit: cover; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+.ly-meta { display: grid; gap: 4px; min-width: 0; }
+.ly-meta strong { font-size: 1.25rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ly-meta span { color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ly-meta em { font-style: normal; font-family: var(--font-mono); font-size: .66rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(255,255,255,.45); margin-top: 6px; }
+.ly-viewport { position: relative; height: 100%; min-height: 0; overflow: hidden;
+  -webkit-mask: linear-gradient(transparent, #000 18%, #000 70%, transparent); mask: linear-gradient(transparent, #000 18%, #000 70%, transparent); }
+.ly-lines { position: absolute; left: 0; right: 0; top: 0; display: grid; gap: 22px; padding-block: 34vh;
+  transition: transform .9s cubic-bezier(.22, 1, .36, 1); will-change: transform; }
+.ly-line { font-size: clamp(1.5rem, 3.3vw, 2.5rem); font-weight: 700; line-height: 1.22; letter-spacing: -.01em; text-wrap: balance;
+  color: rgba(255,255,255,.32); transform-origin: left center; transition: color .5s, transform .6s cubic-bezier(.22, 1, .36, 1), opacity .5s; cursor: pointer; }
+.ly-line.past { color: rgba(255,255,255,.24); }
+.ly-line.now { color: #fff; transform: scale(1.04); }
+.ly-plain .ly-line { color: rgba(255,255,255,.9); cursor: default; font-size: clamp(1.2rem, 2.4vw, 1.8rem); }
+.ly-dots { display: flex; gap: 10px; height: 1.2em; align-items: center; }
+.ly-dots i { width: 12px; height: 12px; border-radius: 50%; background: currentColor; opacity: .5; }
+.ly-line.now .ly-dots i { animation: lyDot 1.4s ease-in-out infinite; }
+.ly-line.now .ly-dots i:nth-child(2) { animation-delay: .2s; }
+.ly-line.now .ly-dots i:nth-child(3) { animation-delay: .4s; }
+@keyframes lyDot { 50% { opacity: 1; transform: scale(1.35); } }
+.ly-empty { font-size: 1.4rem; font-weight: 600; color: rgba(255,255,255,.75); }
+.ly-empty small { display: block; margin-top: 8px; font-size: .95rem; font-weight: 400; color: rgba(255,255,255,.5); }
+.ctl.lyr[aria-pressed="true"] { background: var(--ink); color: var(--ink-fg); }
+@media (max-width: 720px) { .lyrics { grid-template-columns: 1fr; gap: 12px; padding-block: 16px 120px; } .ly-head { grid-template-columns: 64px 1fr; align-items: center; } .ly-cover { border-radius: 8px; } }
+@media (prefers-reduced-motion: reduce) { .ly-lines, .ly-line { transition: none; } .lyrics { animation: none; } }
 .fail { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; text-align: center; color: var(--muted); }
 @media (max-height: 520px) { .hint { display: none; } }
 </style>
 
 <canvas id="gl" aria-label="3D CD-Hülle. Antippen öffnet sie und spielt die CD ab."></canvas>
+<section class="lyrics" id="lyrics" hidden aria-label="Lyrics">
+  <div class="ly-bg" id="lyBg"></div>
+  <header class="ly-head">
+    <img class="ly-cover" id="lyCover" alt="">
+    <div class="ly-meta"><strong id="lyTitle"></strong><span id="lyArtist"></span><em id="lySource"></em></div>
+  </header>
+  <div class="ly-viewport" id="lyViewport"><div class="ly-lines" id="lyLines"></div></div>
+</section>
 <div class="toast" id="toast" role="status" hidden></div>
 <div class="drop" id="drop" hidden>Loslassen, um als CD zu importieren</div>
 <div class="fail" id="fail" hidden>3D-Grafik wird auf diesem Gerät nicht unterstützt.</div>
@@ -150,37 +248,63 @@ body {
     <button class="ctl" id="nextBtn" aria-label="Nächster Song">
       <svg viewBox="0 0 28 24"><path d="M2 5.6v12.8a.9.9 0 0 0 1.4.7l8.9-6.3a1 1 0 0 0 0-1.6L3.4 4.9a.9.9 0 0 0-1.4.7Zm13 0v12.8a.9.9 0 0 0 1.4.7l8.9-6.3a1 1 0 0 0 0-1.6l-8.9-6.3a.9.9 0 0 0-1.4.7Z"/></svg>
     </button>
+    <span class="sep"></span>
+    <button class="ctl lyr" id="lyricsBtn" aria-label="Lyrics" aria-pressed="false" title="Lyrics">
+      <svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M6 3h12a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-5.2l-4.1 3.3A.8.8 0 0 1 7.4 20.7V18H6a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3Zm0 1.8A1.2 1.2 0 0 0 4.8 6v9A1.2 1.2 0 0 0 6 16.2h3.2v2.6l3-2.6H18a1.2 1.2 0 0 0 1.2-1.2V6A1.2 1.2 0 0 0 18 4.8Zm2.6 3.4h2.6v2.3c0 1.6-.8 2.7-2.3 3.1l-.4-.9c.7-.3 1-.8 1.1-1.5H8.6Zm4.6 0h2.6v2.3c0 1.6-.8 2.7-2.3 3.1l-.4-.9c.7-.3 1-.8 1.1-1.5h-1Z"/></svg>
+    </button>
   </nav>
 </main>
 
-<div class="sheet-wrap" id="sheetWrap" hidden>
-  <form class="sheet" id="sheet" novalidate>
-    <h2>Eigene CD brennen</h2>
-    <p>Wähle deine Songs. Ohne eigenes Cover nimmt die App das Albumcover aus der ersten Datei.</p>
-    <label class="field">Name der Playlist
-      <input type="text" id="cdName" maxlength="40" placeholder="z. B. Sommer 2026">
-    </label>
-    <label class="field">Cover (optional)
-      <input type="file" id="cdCover" accept="image/*">
-    </label>
-    <label class="field">Songs (MP3, M4A …)
-      <input type="file" id="cdSongs" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg" multiple>
-    </label>
-    <label class="field">… oder Playlist aus der Musik-App einfügen (Songs markieren, ⌘C, hier ⌘V)
-      <textarea id="cdList" rows="3" placeholder="Titel, Künstler, Album …"></textarea>
-    </label>
-    <label class="field">… oder ganzen Ordner importieren (jeder Unterordner wird eine CD)
-      <input type="file" id="cdFolder" webkitdirectory multiple>
-    </label>
-    <p>Tipp: Du kannst Dateien und Ordner auch einfach auf die App ziehen. Cover und Songnamen werden automatisch aus den Dateien gelesen.</p>
-    <div class="err" id="err"></div>
-    <div class="row">
-      <button type="button" class="btn" id="cancelBtn">Abbrechen</button>
-      <button type="submit" class="btn primary">CD erstellen</button>
+<div class="wiz" id="sheetWrap" hidden>
+  <form class="wiz-in" id="sheet" novalidate>
+    <button type="button" class="wiz-x" id="cancelBtn" aria-label="Schließen">
+      <svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4-5.6-5.6L6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
+    </button>
+    <div class="wiz-stage" aria-hidden="true">
+      <div class="cd3d" id="cd3d" data-step="1">
+        <div class="cd3d-disc" id="cd3dDisc"></div>
+        <i class="cd3d-sheen"></i><i class="cd3d-hub"></i>
+      </div>
+      <div class="cd3d-shadow"></div>
+      <div class="wiz-cdname" id="wizCdName">Meine CD</div>
     </div>
-    <div class="own" id="ownBox" hidden>
-      <h3>Deine CDs</h3>
-      <div id="ownList"></div>
+    <div class="wiz-panel">
+      <div class="wiz-dots" id="wizDots"><span></span><span></span><span></span></div>
+      <p class="wiz-kicker" id="wizKicker">Schritt 1 von 3</p>
+      <section class="wiz-step" data-step="1">
+        <h2>Wie soll deine CD heißen?</h2>
+        <input type="text" id="cdName" maxlength="40" placeholder="z. B. Sommer 2026" autocomplete="off">
+        <div class="own" id="ownBox" hidden>
+          <h3>Deine CDs</h3>
+          <div id="ownList"></div>
+        </div>
+      </section>
+      <section class="wiz-step" data-step="2" hidden>
+        <h2>Wähl ein Cover</h2>
+        <p>Es wird auf die CD gedruckt. Ohne eigenes Bild nimmt die App das Albumcover aus deinen Songs.</p>
+        <label class="pick"><input type="file" id="cdCover" accept="image/*"><span id="coverLabel">Bild auswählen</span></label>
+      </section>
+      <section class="wiz-step" data-step="3" hidden>
+        <h2>Füg deine Songs hinzu</h2>
+        <p>MP3, M4A, FLAC oder WAV. Eigene Lyrics: eine .lrc-Datei mit gleichem Namen dazulegen.</p>
+        <div class="pick-row">
+          <label class="pick"><input type="file" id="cdSongs" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg,.lrc" multiple><span>Songs auswählen</span></label>
+          <label class="pick ghost"><input type="file" id="cdFolder" webkitdirectory multiple><span>Ganzer Ordner</span></label>
+        </div>
+        <details class="paste"><summary>Playlist aus der Musik-App einfügen</summary>
+          <textarea id="cdList" rows="4" placeholder="In der Musik-App Songs markieren, ⌘C, hier ⌘V"></textarea>
+        </details>
+        <ul class="wiz-files" id="wizFiles"></ul>
+      </section>
+      <section class="wiz-step" data-step="4" hidden>
+        <h2 id="burnTitle">CD wird gebrannt …</h2>
+        <div class="burn"><div class="burn-fill" id="burnFill"></div></div>
+      </section>
+      <div class="err" id="err"></div>
+      <div class="wiz-nav" id="wizNav">
+        <button type="button" class="btn" id="wizBack">Zurück</button>
+        <button type="submit" class="btn primary" id="wizNext">Weiter</button>
+      </div>
     </div>
   </form>
 </div>
@@ -321,11 +445,11 @@ const Scene = (() => {
   }));
 
   /* booklet on the inside of the lid: cover, title, artist, live progress */
-  const BK = 1024, bkCanvas = document.createElement('canvas'); bkCanvas.width = bkCanvas.height = BK;
+  const BK = 1024, BKS = 2, bkCanvas = document.createElement('canvas'); bkCanvas.width = bkCanvas.height = BK * BKS;
   const bk = bkCanvas.getContext('2d');
-  const bkTex = new THREE.CanvasTexture(bkCanvas); bkTex.colorSpace = THREE.SRGBColorSpace; bkTex.anisotropy = 4;
+  const bkTex = new THREE.CanvasTexture(bkCanvas); bkTex.colorSpace = THREE.SRGBColorSpace; bkTex.anisotropy = renderer.capabilities.getMaxAnisotropy(); bkTex.minFilter = THREE.LinearMipmapLinearFilter;
   const booklet = new THREE.Mesh(new THREE.PlaneGeometry(S - .07, S - .07),
-    new THREE.MeshBasicMaterial({ map: bkTex, toneMapped: false }));
+    new THREE.MeshBasicMaterial({ map: bkTex, toneMapped: false, transparent: true, opacity: 0 }));
   booklet.position.z = -.007; booklet.rotation.y = Math.PI; lidGroup.add(booklet);
   let coverImg = null;
   const info = { title: '', artist: '', meta: '', cur: 0, dur: 0, playing: false };
@@ -345,6 +469,7 @@ const Scene = (() => {
   }
   function drawBooklet() {
     const g = bk, pad = 96, inner = BK - pad * 2;
+    g.setTransform(BKS, 0, 0, BKS, 0, 0);
     g.fillStyle = '#fbfbfc'; g.fillRect(0, 0, BK, BK);
     // cover
     const cs = 560, cx = (BK - cs) / 2, cy = 70;
@@ -408,7 +533,7 @@ const Scene = (() => {
 
   function resize() {
     const w = innerWidth, h = innerHeight;
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
@@ -518,6 +643,9 @@ const Scene = (() => {
     root.position.x = st.shift * S / 2;
     root.position.y = Math.sin(t * .9) * .025 * sway + st.fly;
     hinge.rotation.y = -st.lid * Math.PI * .985;
+    // the booklet only shows once the lid is mostly open (never through a closed case)
+    const bo = Math.min(1, Math.max(0, (st.lid - .55) / .35));
+    booklet.material.opacity = bo; booklet.visible = bo > 0;
     hinge.position.z = T / 2 + .008 + Math.sin(st.lid * Math.PI) * .05;
     sparkles.forEach(sp => { const k = Math.max(0, Math.sin(t * 1.3 + sp.userData.phase)); sp.material.opacity = Math.pow(k, 6); });
 
@@ -650,7 +778,13 @@ const Scene = (() => {
   ].map(cd => ({ ...cd, demo: true,
     tracks: cd.tracks.map((title, k) => ({ title, synth: { ...cd.style, key: cd.style.key + [0, -2, 3][k], rot: k, seed: k + 1 }, duration: 150 + k * 22 })) }));
 
+  const DEMO_LYRICS = {
+    'Nachtfahrt': [[6, 'Die Stadt schläft, nur die Ampeln nicht'], [13, 'Ich fahr durch Gelb, du schaust ins Licht'], [21, 'Die Autobahn, ein langer Strich'], [29, ''], [38, 'Wir haben keinen Plan, nur Benzin und Zeit'], [46, 'Und jede Ausfahrt ist zu weit'], [54, 'Dreh lauter, bis der Morgen kommt'], [62, 'Bis die Sonne über Dächern glänzt'], [70, ''], [86, 'Die Stadt schläft, nur die Ampeln nicht'], [94, 'Ich fahr durch Gelb, du schaust ins Licht']],
+    'Rosenrot': [[5, 'Samstag, und der Kaffee wird kalt'], [12, 'Du lachst über Dinge, die ich nicht sag'], [20, 'Rosenrot auf weißem Stoff'], [28, 'Ich glaub, ich hab den Mut gehofft'], [36, ''], [48, 'Bleib noch, nur bis der Regen geht'], [56, 'Bis die Platte sich nicht mehr dreht'], [64, 'Rosenrot auf weißem Stoff'], [72, 'Ich glaub, ich hab den Mut gehofft']],
+    'Sternfeld': [[8, 'Leise'], [14, 'Nur der Motor und wir'], [24, ''], [40, 'Ein Feld voller Sterne'], [48, 'Und keiner davon gehört mir'], [60, ''], [76, 'Leise'], [82, 'Fast schon zu Haus']],
+  };
   let cds = [...DEMO];
+  DEMO.forEach(cd => cd.tracks.forEach(tr => { if (DEMO_LYRICS[tr.title]) tr.demoLyrics = DEMO_LYRICS[tr.title]; }));
   let switching = false;
 
   /* ---------- live CD: whatever the phone plays over Bluetooth (Android app only) ---------- */
@@ -829,7 +963,6 @@ const Scene = (() => {
     $('app').classList.toggle('is-open', on);
     $('playIcon').innerHTML = on ? PAUSE_SVG : 'OK';
     $('playBtn').setAttribute('aria-label', on ? 'Pause' : 'OK – abspielen');
-    $('hint').textContent = on ? 'OK drücken zum Pausieren' : 'Drücke OK – die Hülle dreht sich und öffnet';
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
   }
   function toggle() {
@@ -845,8 +978,113 @@ const Scene = (() => {
   }
   $('toast').addEventListener('click', () => { if (toastAction) toastAction(); $('toast').hidden = true; });
 
+  /* ================= lyrics ================= */
+  // LRC "[mm:ss.xx] text" -> [{t, text}], or null when the text has no timestamps
+  function parseLrc(text) {
+    const out = [];
+    for (const line of (text || '').split(/\r\n|\r|\n/)) {
+      const stamps = [...line.matchAll(/\[(\d{1,3}):(\d{1,2}(?:[.:]\d{1,3})?)\]/g)];
+      if (!stamps.length) continue;
+      const words = line.replace(/\[[^\]]*\]/g, '').replace(/<\d+:\d+(?:\.\d+)?>/g, '').trim();
+      stamps.forEach(m => out.push({ t: +m[1] * 60 + parseFloat(m[2].replace(':', '.')), text: words }));
+    }
+    return out.length ? out.sort((a, b) => a.t - b.t) : null;
+  }
+  const lyCache = new Map();
+  const http = new Map(); let httpId = 0;
+  function getText(url) {
+    if (Bridge && Bridge.httpGet) return new Promise((res) => { const id = 'h' + (++httpId); http.set(id, res); Bridge.httpGet(id, url); setTimeout(() => { if (http.has(id)) { http.delete(id); res(null); } }, 12000); });
+    return fetch(url).then(r => r.ok ? r.text() : null).catch(() => null);
+  }
+  async function onlineLyrics(title, artist, album, dur) {
+    const q = (o) => Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+    let body = await getText('https://lrclib.net/api/get?' + q({ track_name: title, artist_name: artist, album_name: album, duration: dur ? Math.round(dur) : '' }));
+    let hit = null;
+    try { hit = body && JSON.parse(body); if (hit && hit.statusCode) hit = null; } catch (e) { hit = null; }
+    if (!hit) {
+      body = await getText('https://lrclib.net/api/search?' + q({ track_name: title, artist_name: artist }));
+      try { const list = JSON.parse(body || '[]'); hit = list.find(x => x.syncedLyrics) || list[0] || null; } catch (e) { hit = null; }
+    }
+    if (!hit) return null;
+    if (hit.instrumental) return { lines: null, plain: null, instrumental: true, source: 'LRCLIB' };
+    return { lines: parseLrc(hit.syncedLyrics), plain: hit.plainLyrics || null, source: 'LRCLIB' };
+  }
+  async function lyricsFor(tr, cd) {
+    const key = (cd.id || cd.name) + '|' + tr.title + '|' + (tr.artist || '');
+    if (lyCache.has(key)) return lyCache.get(key);
+    let res = null;
+    if (tr.demoLyrics) res = { lines: tr.demoLyrics.map(([t, text]) => ({ t, text })), source: 'Demo-Lyrics' };
+    else if (tr.lyricsText) res = { lines: parseLrc(tr.lyricsText), plain: tr.lyricsText, source: 'Aus der Datei' };
+    else if (tr.synth) res = { instrumental: true, source: 'Demo-CD' };
+    else {
+      const artist = tr.artist || (cd.live ? '' : cd.name);
+      res = await onlineLyrics(tr.title, artist, tr.album || '', duration());
+      if (!res) res = { missing: true };
+    }
+    lyCache.set(key, res);
+    return res;
+  }
+
+  const ly = { open: false, data: null, idx: -2, key: '' };
+  function lyricsKey() { const tr = curTrack(); return state.cd + '|' + tr.title + '|' + (tr.artist || ''); }
+  async function loadLyrics() {
+    const tr = curTrack(), cd = curCd(), key = lyricsKey();
+    ly.key = key; ly.idx = -2;
+    $('lyTitle').textContent = tr.title; $('lyArtist').textContent = tr.artist || cd.name;
+    $('lyCover').src = cd.cover; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
+    $('lySource').textContent = 'Lyrics werden gesucht …';
+    const box = $('lyLines'); box.innerHTML = ''; box.style.transform = '';
+    box.style.position = ''; box.style.paddingBlock = ''; $('lyViewport').style.overflowY = '';
+    $('lyViewport').classList.remove('ly-plain');
+    const data = await lyricsFor(tr, cd);
+    if (key !== ly.key) return;   // song changed meanwhile
+    ly.data = data;
+    const empty = (h, s) => { box.innerHTML = `<div class="ly-empty">${h}<small>${s}</small></div>`; box.style.transform = 'translateY(0)'; };
+    $('lySource').textContent = data.source ? 'Quelle: ' + data.source : '';
+    if (data.instrumental) return empty('Instrumental', 'Dieser Song hat keinen Text.');
+    if (data.missing) return empty('Keine Lyrics gefunden', Bridge ? 'Leg eine .lrc-Datei mit gleichem Namen zum Song, dann erscheinen sie hier.' : 'Online-Lyrics gibt es in der Android-App. Eigene Lyrics: .lrc-Datei mit gleichem Namen zum Song legen.');
+    if (data.lines) {
+      const lines = data.lines[0].t > 4 ? [{ t: 0, text: '' }, ...data.lines] : data.lines;
+      ly.data.lines = lines;
+      lines.forEach((l, i) => {
+        const el = document.createElement('div'); el.className = 'ly-line';
+        if (l.text) el.textContent = l.text; else el.innerHTML = '<span class="ly-dots"><i></i><i></i><i></i></span>';
+        el.addEventListener('click', () => seek(l.t + .01));
+        box.appendChild(el);
+      });
+      lyTick(true);
+    } else {
+      $('lyViewport').classList.add('ly-plain');
+      data.plain.split(/\r\n|\r|\n/).forEach(s => { const el = document.createElement('div'); el.className = 'ly-line'; el.textContent = s || '\u00a0'; box.appendChild(el); });
+      $('lyViewport').style.overflowY = 'auto'; box.style.position = 'relative'; box.style.paddingBlock = '8vh 30vh';
+    }
+  }
+  function lyTick(force = false) {
+    if (!ly.open) return;
+    if (lyricsKey() !== ly.key) { loadLyrics(); return; }
+    const lines = ly.data && ly.data.lines;
+    if (!lines) return;
+    const e = elapsed() + .25;
+    let i = -1; for (let k = 0; k < lines.length; k++) { if (lines[k].t <= e) i = k; else break; }
+    if (i === ly.idx && !force) return;
+    ly.idx = i;
+    const els = $('lyLines').children;
+    for (let k = 0; k < els.length; k++) { els[k].classList.toggle('now', k === i); els[k].classList.toggle('past', k < i); }
+    const cur = els[Math.max(0, i)];
+    if (cur) $('lyLines').style.transform = `translateY(${-(cur.offsetTop - $('lyViewport').clientHeight * .36 + cur.offsetHeight / 2)}px)`;
+  }
+  function lyLoop() { if (!ly.open) return; lyTick(); requestAnimationFrame(lyLoop); }
+  function setLyrics(on) {
+    ly.open = on;
+    $('lyrics').hidden = !on;
+    $('lyricsBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (on) { $('lyViewport').style.overflowY = ''; $('lyLines').style.position = ''; $('lyLines').style.paddingBlock = ''; loadLyrics(); requestAnimationFrame(lyLoop); }
+  }
+  $('lyricsBtn').addEventListener('click', () => setLyrics(!ly.open));
+
   /* called by the Android app */
   window.NativeMedia = {
+    onHttp(id, status, body) { const r = http.get(id); if (r) { http.delete(id); r(status >= 200 && status < 300 ? body : null); } },
     onAccess(granted) {
       if (!granted) toast('Tippe hier und erlaube „Jewel CD“ den Zugriff auf Benachrichtigungen, damit die App sieht, was dein iPhone spielt.', () => { try { Bridge.openAccess(); } catch (e) {} }, true);
       else if (toastAction) $('toast').hidden = true;
@@ -857,7 +1095,7 @@ const Scene = (() => {
       toast('Handy verbunden. Spiel Musik auf dem Handy ab, sie erscheint hier als CD.');
     },
     onUsb() {
-      toast('USB-Stick erkannt. Tippe hier, um Songs davon als CD zu importieren.', () => { $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; }, true);
+      toast('USB-Stick erkannt. Tippe hier, um Songs davon als CD zu importieren.', () => openWizard(1), true);
     },
     onAutoStart(allowed) {
       let asked = false; try { asked = localStorage.getItem('jewel-autostart-asked') === '1'; } catch (e) {}
@@ -873,6 +1111,7 @@ const Scene = (() => {
       L.speed = o.speed || 1; L.playing = !!o.playing; L.app = o.app || '';
       if (o.art && o.art !== LIVE.cover) { LIVE.cover = o.art; if (isLive()) renderCase(); renderThumbs(); }
       else if (key !== L.key && !o.art) { LIVE.cover = coverLive(); if (isLive()) renderCase(); renderThumbs(); }
+      if (key !== L.key) lyCache.forEach((v, k) => { if (k.startsWith('live|')) lyCache.delete(k); });
       L.key = key;
       if (isLive()) { renderInfo(); if (L.playing !== state.playing && !switching) setPlaying(L.playing, true); }
     },
@@ -902,7 +1141,7 @@ const Scene = (() => {
   audio.addEventListener('ended', () => step(1));
   audio.addEventListener('error', () => {
     if (!state.playing || !curTrack().url) return;
-    $('hint').textContent = `„${curTrack().title}“ lässt sich nicht abspielen. Apple Lossless (ALAC) läuft auf Android nicht – bitte als FLAC importieren.`;
+    toast(`„${curTrack().title}“ lässt sich nicht abspielen. Apple Lossless (ALAC) läuft auf Android nicht – bitte als FLAC importieren.`);
     setTimeout(() => step(1), 2500);
   });
 
@@ -1031,7 +1270,7 @@ const Scene = (() => {
   }
   function fromRecord(rec) {
     return { id: rec.id, name: rec.name, cover: rec.cover, demo: false, rec,
-      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, url: s.blob ? URL.createObjectURL(s.blob) : null })) };
+      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, lyricsText: s.lyrics || '', url: s.blob ? URL.createObjectURL(s.blob) : null })) };
   }
   function squareCover(file) {
     return new Promise((res) => {
@@ -1065,9 +1304,62 @@ const Scene = (() => {
     });
   }
 
-  $('addBtn').addEventListener('click', () => { $('addBtn').classList.remove('pulse'); $('toast').hidden = true; $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; $('cdName').focus(); });
-  $('cancelBtn').addEventListener('click', () => { $('sheetWrap').hidden = true; });
-  $('sheetWrap').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('sheetWrap').hidden = true; });
+  /* ---------- "+" wizard: the dock grows into a white page, then name -> cover -> songs -> burn ---------- */
+  const wiz = { step: 1, cover: null, busy: false };
+  function setWizRect(el) {
+    const r = el.getBoundingClientRect(), w = $('sheetWrap');
+    w.style.setProperty('--t', r.top + 'px'); w.style.setProperty('--l', r.left + 'px');
+    w.style.setProperty('--r', (innerWidth - r.right) + 'px'); w.style.setProperty('--b', (innerHeight - r.bottom) + 'px');
+    w.style.setProperty('--rad', (r.height / 2) + 'px');
+  }
+  function wizPreview() {
+    const name = $('cdName').value.trim() || 'Meine CD';
+    $('wizCdName').textContent = name;
+    $('cd3dDisc').style.setProperty('--cover', `url("${wiz.cover || coverFromName(name)}")`);
+  }
+  function showStep(n) {
+    wiz.step = n;
+    document.querySelectorAll('.wiz-step').forEach(s => { s.hidden = +s.dataset.step !== n; });
+    $('cd3d').dataset.step = n;
+    [...$('wizDots').children].forEach((d, i) => d.classList.toggle('on', i < Math.min(n, 3)));
+    $('wizKicker').textContent = n <= 3 ? `Schritt ${n} von 3` : 'Fast fertig';
+    $('wizBack').hidden = n === 1; $('wizNav').hidden = n === 4;
+    $('wizNext').textContent = n === 3 ? 'CD brennen' : 'Weiter';
+    $('err').textContent = '';
+    if (n === 1) setTimeout(() => $('cdName').focus(), 450);
+  }
+  function openWizard(step = 1) {
+    $('addBtn').classList.remove('pulse'); $('toast').hidden = true;
+    if (setLyrics && ly.open) setLyrics(false);
+    $('sheet').reset(); wiz.cover = null; $('coverLabel').textContent = 'Bild auswählen'; $('wizFiles').innerHTML = '';
+    renderOwn(); showStep(step); wizPreview();
+    const w = $('sheetWrap'); setWizRect($('addBtn')); w.classList.remove('full'); w.hidden = false;
+    void w.offsetWidth; requestAnimationFrame(() => w.classList.add('full'));
+  }
+  function closeWizard() {
+    const w = $('sheetWrap'); setWizRect($('addBtn')); w.classList.remove('full');
+    setTimeout(() => { if (!w.classList.contains('full')) w.hidden = true; }, 760);
+  }
+  $('addBtn').addEventListener('click', () => openWizard(1));
+  $('cancelBtn').addEventListener('click', closeWizard);
+  $('wizBack').addEventListener('click', () => showStep(Math.max(1, wiz.step - 1)));
+  $('cdName').addEventListener('input', wizPreview);
+  $('cdCover').addEventListener('change', async () => {
+    const f = $('cdCover').files[0]; if (!f) return;
+    wiz.cover = await squareCover(f); $('coverLabel').textContent = 'Anderes Bild'; wizPreview();
+  });
+  async function listPicked() {
+    const files = [...$('cdSongs').files, ...$('cdFolder').files].filter(isAudio);
+    $('wizFiles').innerHTML = '';
+    files.slice(0, 40).forEach(f => { const li = document.createElement('li'); li.textContent = '♪ ' + f.name.replace(/\.[^.]+$/, ''); $('wizFiles').appendChild(li); });
+    if (files.length > 40) { const li = document.createElement('li'); li.textContent = `… und ${files.length - 40} weitere`; $('wizFiles').appendChild(li); }
+    if (!wiz.cover && files[0]) {   // preview the album art from the first song
+      const tags = files[0]._tags || (files[0]._tags = await readTags(files[0]));
+      if (tags.picture && !wiz.cover) { wiz.cover = await squareCover(tags.picture); wizPreview(); }
+    }
+  }
+  $('cdSongs').addEventListener('change', listPicked);
+  $('cdFolder').addEventListener('change', listPicked);
   /* ---------- tag reading (ID3v2 for MP3, iTunes atoms for M4A) ---------- */
   const AUDIO_RE = /\.(mp3|m4a|aac|mp4|wav|flac|ogg|oga|opus)$/i;
   const isAudio = (f) => AUDIO_RE.test(f.name) || (f.type || '').startsWith('audio/');
@@ -1097,6 +1389,12 @@ const Scene = (() => {
       if (id === 'TIT2' || id === 'TT2') out.title = decodeText(d);
       else if (id === 'TPE1' || id === 'TP1') out.artist = decodeText(d);
       else if (id === 'TALB' || id === 'TAL') out.album = decodeText(d);
+      else if ((id === 'USLT' || id === 'ULT') && !out.lyrics) {
+        const enc = d[0]; let q = 4;
+        if (enc === 1 || enc === 2) { while (q + 1 < d.length && !(d[q] === 0 && d[q + 1] === 0)) q += 2; q += 2; }
+        else { while (q < d.length && d[q] !== 0) q++; q += 1; }
+        out.lyrics = decodeText(new Uint8Array([enc, ...d.subarray(q)]));
+      }
       else if ((id === 'APIC' || id === 'PIC') && !out.picture) {
         const enc = d[0]; let q = 1, mime = 'image/jpeg';
         if (id === 'APIC') { const z = d.indexOf(0, q); mime = latin1(d.subarray(q, z)) || mime; q = z + 1; } else q += 3;
@@ -1127,6 +1425,7 @@ const Scene = (() => {
             if (type === '\xa9nam') out.title = new TextDecoder().decode(payload);
             else if (type === '\xa9ART') out.artist = new TextDecoder().decode(payload);
             else if (type === '\xa9alb') out.album = new TextDecoder().decode(payload);
+            else if (type === '\xa9lyr') out.lyrics = new TextDecoder().decode(payload);
             else if (type === 'covr' && !out.picture) out.picture = new Blob([payload.slice()], { type: kind === 14 ? 'image/png' : 'image/jpeg' });
           }
         }
@@ -1148,7 +1447,7 @@ const Scene = (() => {
         for (let i = 0; i < n && q + 4 <= d + len; i++) {
           const l = v.getUint32(q, true), s = new TextDecoder().decode(u.subarray(q + 4, q + 4 + l)); q += 4 + l;
           const k = s.indexOf('='), key = s.slice(0, k).toUpperCase(), val = s.slice(k + 1);
-          if (key === 'TITLE') out.title = val; else if (key === 'ARTIST' && !out.artist) out.artist = val; else if (key === 'ALBUM') out.album = val;
+          if (key === 'TITLE') out.title = val; else if (key === 'ARTIST' && !out.artist) out.artist = val; else if (key === 'ALBUM') out.album = val; else if (key === 'LYRICS' || key === 'UNSYNCEDLYRICS') out.lyrics = val;
         }
       } else if (type === 6 && !out.picture) {
         let q = d + 4; const ml = v.getUint32(q); const mime = latin1(u.subarray(q + 4, q + 4 + ml)); q += 4 + ml;
@@ -1210,6 +1509,8 @@ const Scene = (() => {
       if (!slot) { rest.push(f); continue; }
       slots.splice(slots.indexOf(slot), 1);
       const cd = cds[slot.ci]; cd.rec.songs[slot.si].blob = f;
+      const lyr = tags.lyrics || f._lrc || '';
+      if (lyr) { cd.rec.songs[slot.si].lyrics = lyr; cd.tracks[slot.si].lyricsText = lyr; }
       cd.tracks[slot.si].url = URL.createObjectURL(f);
       touched.add(slot.ci);
     }
@@ -1219,7 +1520,7 @@ const Scene = (() => {
   }
 
   /* ---------- import ---------- */
-  async function createCd(name, files, coverFile) {
+  async function createCd(name, files, coverFile, coverData = null) {
     const audio = files.filter(isAudio).sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, { numeric: true }));
     if (!audio.length) return null;
     const songs = [];
@@ -1228,10 +1529,10 @@ const Scene = (() => {
       const tags = f._tags || await readTags(f);
       if (!embedded && tags.picture) embedded = tags.picture;
       if (!album && tags.album) album = tags.album;
-      songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f });
+      songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f, lyrics: tags.lyrics || f._lrc || '' });
     }
     const cdName = name || album || 'Meine Playlist';
-    const cover = (coverFile && await squareCover(coverFile)) || (embedded && await squareCover(embedded)) || coverFromName(cdName);
+    const cover = coverData || (coverFile && await squareCover(coverFile)) || (embedded && await squareCover(embedded)) || coverFromName(cdName);
     const rec = { id: 'own-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: cdName, cover, songs };
     if (!await dbPut(rec)) console.warn('CD konnte nicht dauerhaft gespeichert werden.');
     cds.push(fromRecord(rec));
@@ -1247,36 +1548,60 @@ const Scene = (() => {
     });
     return groups;
   }
-  async function importGroups(files, fallbackName, coverFile) {
+  const baseName = (f) => norm(f.name.replace(/\.[^.]+$/, ''));
+  async function attachLrc(files) {
+    const lrcs = new Map();
+    for (const f of files) if (/\.lrc$/i.test(f.name)) { try { lrcs.set(baseName(f), await f.text()); } catch (e) {} }
+    if (!lrcs.size) return;
+    for (const f of files) {
+      if (!isAudio(f)) continue;
+      let lrc = lrcs.get(baseName(f));
+      if (!lrc) { const tags = f._tags || (f._tags = await readTags(f)); lrc = lrcs.get(norm(tags.title)); }
+      if (lrc) f._lrc = lrc;
+    }
+  }
+  async function importGroups(files, fallbackName, coverFile, autoSwitch = true, fill = true) {
+    await attachLrc(files);
     const audioFiles = files.filter(isAudio);
-    const rest = await fillMissing(audioFiles);
+    const rest = fill ? await fillMissing(audioFiles) : audioFiles;
     const matched = audioFiles.length - rest.length;
     const groups = groupByFolder(rest);
     if (!groups.size) return matched ? -1 : 0;
     let lastIdx = null;
-    for (const [folder, list] of groups) lastIdx = await createCd(groups.size === 1 && fallbackName ? fallbackName : folder, list, coverFile);
+    for (const [folder, list] of groups) lastIdx = await createCd(groups.size === 1 && fallbackName ? fallbackName : folder, list, coverFile, groups.size === 1 ? wiz.cover : null);
     renderThumbs();
-    if (lastIdx !== null) switchCd(lastIdx);
+    if (lastIdx !== null && autoSwitch) switchCd(lastIdx);
     return groups.size;
   }
 
   $('sheet').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const files = [...$('cdSongs').files, ...$('cdFolder').files], coverFile = $('cdCover').files[0];
+    if (wiz.busy) return;
+    if (wiz.step < 3) { showStep(wiz.step + 1); return; }
+    const files = [...$('cdSongs').files, ...$('cdFolder').files];
     const list = parseList($('cdList').value);
-    if (list.length) {
-      $('err').textContent = 'Wird importiert …';
-      const idx = await createListCd($('cdName').value.trim(), list, coverFile);
-      if (files.some(isAudio)) await fillMissing(files.filter(isAudio));
-      renderThumbs(); switchCd(idx);
-      $('sheet').reset(); $('err').textContent = ''; $('sheetWrap').hidden = true;
-      return;
-    }
-    if (!files.some(isAudio)) { $('err').textContent = 'Wähle Songs, einen Ordner oder füge eine Playlist ein.'; return; }
-    $('err').textContent = 'Wird importiert …';
-    await importGroups(files, $('cdName').value.trim(), coverFile);
-    $('sheet').reset(); $('err').textContent = '';
-    $('sheetWrap').hidden = true;
+    if (!list.length && !files.some(isAudio)) { $('err').textContent = 'Wähl Songs, einen Ordner oder füg eine Playlist ein.'; return; }
+    wiz.busy = true; showStep(4);
+    $('burnTitle').textContent = 'CD wird gebrannt …'; $('burnFill').style.width = '8%';
+    const tick = setInterval(() => { const w = parseFloat($('burnFill').style.width); $('burnFill').style.width = Math.min(90, w + 6) + '%'; }, 250);
+    const coverFile = $('cdCover').files[0], name = $('cdName').value.trim();
+    let idx = null;
+    try {
+      if (list.length) {
+        idx = await createListCd(name, list, coverFile);
+        if (files.some(isAudio)) { await attachLrc(files); await fillMissing(files.filter(isAudio)); }
+        renderThumbs();
+      } else {
+        const before = cds.length;
+        await importGroups(files, name, coverFile, false, false);
+        if (cds.length > before) idx = cds.length - 1;
+      }
+    } finally { clearInterval(tick); }
+    $('burnFill').style.width = '100%'; $('burnTitle').textContent = 'Fertig!';
+    await new Promise(r => setTimeout(r, 900));
+    wiz.busy = false; wiz.cover = null;
+    closeWizard();
+    if (idx !== null) setTimeout(() => switchCd(idx), 500);
   });
 
   /* drag & drop files or whole folders onto the app */
@@ -1304,7 +1629,7 @@ const Scene = (() => {
     if (entries.length) files = (await Promise.all(entries.map(en => entriesToFiles(en)))).flat();
     else files = [...(e.dataTransfer?.files || [])];
     const n = await importGroups(files, '', null);
-    if (!n) { $('err').textContent = 'In den gezogenen Dateien waren keine Songs.'; renderOwn(); $('sheetWrap').hidden = false; }
+    if (!n) toast('In den gezogenen Dateien waren keine Songs.');
   });
 
   /* ================= boot ================= */
