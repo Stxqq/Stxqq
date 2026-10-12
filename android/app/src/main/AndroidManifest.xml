@@ -4,6 +4,9 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- lets the app bring itself to the front when a USB stick is plugged in -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <!-- notice when the phone connects over Bluetooth -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 
     <application
         android:label="Jewel CD"
@@ -40,6 +43,12 @@
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_MOUNTED" />
                 <data android:scheme="file" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".PhoneConnectedReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
             </intent-filter>
         </receiver>
 

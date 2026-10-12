@@ -851,6 +851,11 @@ const Scene = (() => {
       if (!granted) toast('Tippe hier und erlaube „Jewel CD“ den Zugriff auf Benachrichtigungen, damit die App sieht, was dein iPhone spielt.', () => { try { Bridge.openAccess(); } catch (e) {} }, true);
       else if (toastAction) $('toast').hidden = true;
     },
+    onPhone() {
+      const i = cds.indexOf(LIVE);
+      if (i >= 0 && state.cd !== i) switchCd(i);
+      toast('Handy verbunden. Spiel Musik auf dem Handy ab, sie erscheint hier als CD.');
+    },
     onUsb() {
       toast('USB-Stick erkannt. Tippe hier, um Songs davon als CD zu importieren.', () => { $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; }, true);
     },

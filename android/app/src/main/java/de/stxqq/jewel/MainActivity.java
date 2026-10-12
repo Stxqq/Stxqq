@@ -53,6 +53,7 @@ import java.util.concurrent.Executors;
  */
 public class MainActivity extends Activity {
     static final String ACTION_USB = "de.stxqq.jewel.USB";
+    static final String ACTION_PHONE = "de.stxqq.jewel.PHONE";
     private static final int FILE_REQUEST = 41;
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
@@ -64,6 +65,7 @@ public class MainActivity extends Activity {
     private boolean pageReady = false;
     private ValueCallback<Uri[]> fileCallback;
     private boolean usbPending = false;
+    private boolean phonePending = false;
 
     private MediaSessionManager sessions;
     private MediaController controller;
@@ -126,6 +128,21 @@ public class MainActivity extends Activity {
 
         sessions = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
         usbPending = isUsbIntent(getIntent());
+        phonePending = isPhoneIntent(getIntent());
+        if (android.os.Build.VERSION.SDK_INT >= 31
+                && checkSelfPermission("android.permission.BLUETOOTH_CONNECT") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.BLUETOOTH_CONNECT"}, 42);
+        }
+    }
+
+    private static boolean isPhoneIntent(Intent i) {
+        return i != null && ACTION_PHONE.equals(i.getAction());
+    }
+
+    private void announcePhone() {
+        if (!phonePending || !pageReady) return;
+        phonePending = false;
+        js("window.NativeMedia&&NativeMedia.onPhone&&NativeMedia.onPhone()");
     }
 
     @Override
@@ -133,6 +150,7 @@ public class MainActivity extends Activity {
         super.onNewIntent(intent);
         setIntent(intent);
         if (isUsbIntent(intent)) { usbPending = true; announceUsb(); }
+        if (isPhoneIntent(intent)) { phonePending = true; announcePhone(); }
     }
 
     private static boolean isUsbIntent(Intent i) {
@@ -406,6 +424,7 @@ public class MainActivity extends Activity {
                 attachSessions();
                 js("window.NativeMedia&&NativeMedia.onAutoStart&&NativeMedia.onAutoStart(" + canAutoStart() + ")");
                 announceUsb();
+                announcePhone();
             });
         }
         @JavascriptInterface public void play() {
