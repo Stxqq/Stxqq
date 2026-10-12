@@ -651,6 +651,26 @@ const Scene = (() => {
     tracks: cd.tracks.map((title, k) => ({ title, synth: { ...cd.style, key: cd.style.key + [0, -2, 3][k], rot: k, seed: k + 1 }, duration: 150 + k * 22 })) }));
 
   let cds = [...DEMO];
+  let switching = false;
+
+  /* ---------- live CD: whatever the phone plays over Bluetooth (Android app only) ---------- */
+  const Bridge = window.AndroidBridge || null;
+  function coverLive() {
+    const S = 400, c = canvas(S), g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, S, S);
+    gr.addColorStop(0, '#2b2f38'); gr.addColorStop(1, '#0d0f13');
+    g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 10; g.lineCap = 'round'; g.lineJoin = 'round';
+    g.beginPath(); g.moveTo(170, 140); g.lineTo(240, 200); g.lineTo(200, 235); g.lineTo(200, 95); g.lineTo(240, 130); g.lineTo(170, 190); g.stroke();
+    g.fillStyle = 'rgba(255,255,255,.7)'; g.font = '600 34px "Instrument Sans", Arial, sans-serif'; g.textAlign = 'center';
+    g.fillText('Live', S / 2, 300);
+    return c.toDataURL('image/jpeg', .9);
+  }
+  const LIVE = { id: 'live', name: 'iPhone', live: true, demo: false, cover: coverLive(),
+    tracks: [{ title: 'Warte auf Musik …', artist: 'Spiel etwas auf dem iPhone ab', live: true }] };
+  const L = { pos: 0, dur: 0, at: performance.now(), playing: false, speed: 1, key: '' };
+  if (Bridge) cds.unshift(LIVE);
+  const isLive = () => !!curCd().live;
 
   /* ================= synth engine ================= */
   let actx = null, master = null, noiseBuf = null;
@@ -754,16 +774,18 @@ const Scene = (() => {
   function elapsed() {
     const t = curTrack();
     if (t.synth) return state.synth ? state.synth.elapsed() : state.synthOffset;
+    if (t.live) { const e = L.pos + (L.playing ? (performance.now() - L.at) / 1000 * L.speed : 0); return L.dur ? Math.min(e, L.dur) : e; }
     return audio.currentTime || 0;
   }
   function duration() {
     const t = curTrack();
     if (t.synth) return t.duration;
+    if (t.live) return L.dur;
     if (!t.url) return t.length || 0;
     return isFinite(audio.duration) ? audio.duration : 0;
   }
 
-  const playable = (t) => !!(t.synth || t.url);
+  const playable = (t) => !!(t.synth || t.url || t.live);
   function firstPlayable(from, dir = 1) {
     const tr = curCd().tracks, n = tr.length;
     for (let k = 0; k < n; k++) { const i = ((from + dir * k) % n + n) % n; if (playable(tr[i])) return i; }
@@ -773,6 +795,7 @@ const Scene = (() => {
     stopSound();
     state.synthOffset = 0;
     const t = curTrack();
+    if (t.live) { renderInfo(); return; }
     if (t.url) { audio.src = t.url; audio.load(); }
     else if (!t.synth) audio.removeAttribute('src');
     renderInfo();
@@ -783,6 +806,7 @@ const Scene = (() => {
   }
   function startSound() {
     const t = curTrack();
+    if (t.live) return;
     if (t.synth) { ensureCtx(); state.synth = new Synth(t.synth, state.synthOffset); }
     else {
       if (audio.getAttribute('src') !== t.url) { audio.src = t.url; audio.currentTime = 0; }
@@ -790,8 +814,9 @@ const Scene = (() => {
     }
   }
   const PAUSE_SVG = '<svg viewBox="0 0 24 24"><rect x="5.5" y="4" width="4.5" height="16" rx="1.3"/><rect x="14" y="4" width="4.5" height="16" rx="1.3"/></svg>';
-  function setPlaying(on) {
+  function setPlaying(on, fromPhone = false) {
     if (on === state.playing) return;
+    if (isLive() && !fromPhone) { try { on ? Bridge.play() : Bridge.pause(); } catch (e) {} }
     if (on && !playable(curTrack())) {
       const i = firstPlayable(state.track);
       if (i < 0) { setOpen(true); $('app').classList.add('is-open'); toast('Auf dieser CD sind noch keine Song-Dateien. Tippe auf + und wähle deine Songs, sie werden automatisch einsortiert.'); $('addBtn').classList.add('pulse'); return; }
@@ -812,16 +837,39 @@ const Scene = (() => {
     setPlaying(!state.playing);
   }
   let toastTimer = 0;
-  function toast(msg) {
+  let toastAction = null;
+  function toast(msg, action = null, sticky = false) {
     const el = $('toast'); el.textContent = msg; el.hidden = false;
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
+    toastAction = action; el.style.cursor = action ? 'pointer' : '';
+    clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
   }
+  $('toast').addEventListener('click', () => { if (toastAction) toastAction(); $('toast').hidden = true; });
+
+  /* called by the Android app */
+  window.NativeMedia = {
+    onAccess(granted) {
+      if (!granted) toast('Tippe hier und erlaube „Jewel CD“ den Zugriff auf Benachrichtigungen, damit die App sieht, was dein iPhone spielt.', () => { try { Bridge.openAccess(); } catch (e) {} }, true);
+      else if (toastAction) $('toast').hidden = true;
+    },
+    onUpdate(o) {
+      const tr = LIVE.tracks[0];
+      const key = (o.title || '') + '|' + (o.artist || '');
+      tr.title = o.title || 'Unbekannter Titel'; tr.artist = o.artist || ''; tr.album = o.album || '';
+      L.dur = (o.duration || 0) / 1000; L.pos = (o.position || 0) / 1000; L.at = performance.now();
+      L.speed = o.speed || 1; L.playing = !!o.playing; L.app = o.app || '';
+      if (o.art && o.art !== LIVE.cover) { LIVE.cover = o.art; if (isLive()) renderCase(); renderThumbs(); }
+      else if (key !== L.key && !o.art) { LIVE.cover = coverLive(); if (isLive()) renderCase(); renderThumbs(); }
+      L.key = key;
+      if (isLive()) { renderInfo(); if (L.playing !== state.playing && !switching) setPlaying(L.playing, true); }
+    },
+  };
   function setOpen(on) {
     if (on === state.open) return;
     state.open = on;
     on ? Scene.open() : Scene.close();
   }
   function step(dir) {
+    if (isLive()) { try { dir > 0 ? Bridge.next() : Bridge.prev(); } catch (e) {} return; }
     const n = curCd().tracks.length;
     if (dir < 0 && elapsed() > 4) { seek(0); return; }
     const was = state.playing;
@@ -833,6 +881,7 @@ const Scene = (() => {
   }
   function seek(sec) {
     const t = curTrack(), was = state.playing;
+    if (t.live) { try { Bridge.seekTo(Math.round(sec * 1000)); } catch (e) {} L.pos = sec; L.at = performance.now(); return; }
     if (t.synth) { if (was) stopSound(); state.synthOffset = sec; if (was) startSound(); }
     else if (isFinite(audio.duration)) audio.currentTime = sec;
   }
@@ -856,9 +905,10 @@ const Scene = (() => {
   function renderInfo() {
     const cd = curCd(), t = curTrack();
     const have = cd.tracks.filter(playable).length;
-    $('npCd').textContent = `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}` + (have < cd.tracks.length ? ` · ${have} Dateien da` : '') + (playable(t) ? '' : ' · Datei fehlt');
+    $('npCd').textContent = cd.live ? `iPhone · Bluetooth${L.app ? ' · ' + L.app : ''} · ${t.artist}` :
+      `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}` + (have < cd.tracks.length ? ` · ${have} Dateien da` : '') + (playable(t) ? '' : ' · Datei fehlt');
     $('npTitle').textContent = t.title;
-    Scene.setInfo({ title: t.title, artist: t.artist || cd.name, meta: `${cd.name} · Track ${state.track + 1} von ${cd.tracks.length}`, cur: elapsed(), dur: duration() });
+    Scene.setInfo({ title: t.title, artist: t.artist || cd.name, meta: cd.live ? `iPhone · Bluetooth${t.album ? ' · ' + t.album : ''}` : `${cd.name} · Track ${state.track + 1} von ${cd.tracks.length}`, cur: elapsed(), dur: duration() });
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: cd.name, album: cd.name, artwork: [{ src: cd.cover, sizes: '400x400' }] }); } catch (e) {}
     }
@@ -885,7 +935,6 @@ const Scene = (() => {
   }
   setInterval(tickUi, 250);
 
-  let switching = false;
   async function switchCd(i) {
     if (i === state.cd || switching) return;
     const was = state.playing;
@@ -1246,6 +1295,7 @@ const Scene = (() => {
 
   /* ================= boot ================= */
   renderCase(); loadTrack(); renderThumbs(); setOpen(false);
+  if (Bridge) { try { Bridge.ready(); } catch (e) {} }
   const SEED_LIST = "Te Molla (feat. Killua)\t\t3:16\tArnon\tTe Molla (feat. Killua) - Single\tDance\t0\t4\nEntusiasme (Vall\u00e9e De L\u2019armes)\t\t2:09\tHABITAT & Re-Current\tEntusiasme (Vall\u00e9e De L'armes) - Single\tDance\t0\t1\nagain\t\t2:24\tostaprod\tagain - Single\tHouse\t0\t5\nMONACO 1990\t\t2:48\tMARXO\tMONACO 1990 - Single\tDance\t0\t2\nFizzy\t\t3:17\tZARG\tFizzy - Single\tHouse\t0\t3\nTell Me\t\t3:07\tRandm\tTell Me - Single\tHouse\t0\t3\nDeja Vu (feat. Bob Taylor)\t\t4:22\tINNA & Bob Taylor\tHot\tDance\t0\t2\nHow It Feels\t\t2:19\tBarry Can't Swim\tWhen Will We Land?\tElectronic\t0\t3\nTurn Back Time\t\t2:27\tDiplo & Sonny Fodera\tTurn Back Time - Single\tDance\t0\t5\nForgotten Notes\t\t4:29\tHackman\tForgotten Notes - Single\tHouse\t0\t1\nFORMATIONS\t\t2:57\tMild Minds\tMOOD\tElectronic\t0\t4\nSoul Sacrifice\t\t3:52\tDombresky\tSoul Sacrifice - Single\tDance\t0\t1\nAquarius\t\t3:45\tOliver Heldens\tAquarius - Single\tDance\t0\t4\nMy Love (feat. Jess Glynne)\t\t4:20\tRoute 94\tMy Love (feat. Jess Glynne) - Single\tHouse\t0\t\nIn My Room (feat. SHELLS)\t\t2:26\tDombresky\tIn My Room (feat. SHELLS) - Single\tHouse\t0\t3\nWe Do What We Want (Edit)\t\t3:08\tAlan Fitzpatrick\tWe Do What We Want (Edit) - Single\tTechno\t0\t2\nParadise\t\t2:03\tdentist\tParadise - Single\tHouse\t0\t1\nUtopia\t\t4:06\tDJ NIGGA LSD\tFA3\tHouse\t0\t2\nDo To Me\t\t2:25\tTim Sanders\tDo To Me - Single\tDance\t0\t2\nTold You\t\t3:00\tJake Jeffery\tTold You - Single\tDance\t1\t2\nSand\t\t5:35\tDJ NIGGA LSD\tmy wrld\tHouse\t0\t2\nYou're in My System\t\t3:36\tTORYONTHEBEAT\tYou're in My System - Single\tHouse\t0\t3\nSeeing & Believing (Kolter Remix)\t\t3:32\tCHRIS STASSY\tAcross Ocean - EP\tHouse\t0\t1\nFlowers\t\t3:13\tLNRT\tFlowers - Single\tDance\t0\t1\nTorino\t\t3:00\tDJ CARPET & vano1337\tTorino - Single\tHouse\t0\t5\nDarling\t\t3:22\tRad&Co\tDarling - Single\tHouse\t0\t2\nCoast\t\t2:38\tLeon Flydal\tCoast - Single\tDance\t0\t5\nDub City\t\t3:49\tDELACOUR\tDub City - Single\tDance\t1\t2\nLike This\t\t3:30\tZARG\tLike This - Single\tHouse\t0\t5\nHouse Music Will Never Die\t\t3:23\tTim Sanders\tHouse Music Will Never Die - Single\tDance\t0\t2\nwants and needs\t\t4:40\tJake Antonio\twants and needs - Single\tDance\t0\t2\nRight Now\t\t2:44\tLNRT\tRight Now - Single\tDance\t0\t1\nAlways\t\t4:07\tJAYC\tAlways - Single\tDance\t0\t3\nPlayers Only\t\t2:25\tLNRT\tPlayers Only - Single\tDance\t0\t1\nSaint-Tropez\t\t2:33\tZARG & Can U\tSaint-Tropez - Single\tHouse\t0\t4\nNamerakana\t\t5:35\tLemtom\tFair Dinkum - EP\tHouse\t0\t3\nWanna See U\t\t5:22\tLemtom\tWanna See Houston - Single\tHouse\t0\t3\nToca-Toca (Radio Edit)\t\t2:45\tFly Project\tToca Toca (Remix Pack) - Single\tDance\t0\t2\nWhat Can I Do\t\t2:01\tWarband023\tWhat Can I Do - Single\tAlternative\t0\t\nBayside (Radio Edit)\t\t3:17\tObsk\u00fcr\tBayside - Single\tDance\t0\t2\nSlow Down\t\t3:06\tRetrowaves\tSlow Down - Single\tElectronic\t0\t3\nFavorite\t\t3:24\tVAKE\tFavorite - Single\tHouse\t0\t1\nMake U Whole\t\t7:43\tAndronicus\tEarly Hooj, Vol.1\tHouse\t0\t3\nLiria\t\t7:56\tAnalog Jungs\tLiria - Single\tDance\t0\t1\nCall It What You Like\t\t5:26\tRobbie Doherty\tBass Electronic - Single\tElectronic\t0\t1\nRecall (Remix)\t\t2:08\tgabriawll\tRecall (Alternate Versions) - Single\tDance\t0\t3\nBon App\u00e9tit (feat. Migos)\t\t3:48\tKaty Perry\tWitness (Deluxe)\tPop\t0\t1\nStart Movin\t\t3:36\tCHRONOSONDER\tStart Movin - Single\tHouse\t0\t2\nHOUSE OF LUX\t\t2:21\tDannyLux\tDLUX\tLatin\t0\t2\nGod Made Me Phunky (Jess Bays Remix)\t\t3:40\tMD X-Spress\tGod Made Me Phunky (Jess Bays Remix) - Single\tHouse\t0\t3\nLet's Go\t\t2:40\tJaden Bojsen & David Guetta\tLet's Go - Single\tDance\t0\t2\nBreather\t\t7:45\tCHRIS STASSY & S.A.M.\tGet Together\tDance\t0\t2\nMusic Is The Answer (Dancin' & Prancin') [feat. Celeda]\t\t9:08\tDanny Tenaglia\tTourism\tElectronic\t0\t1\nTalk To You (feat. 54 Ultra)\t\t3:11\tANOTR\tTalk To You (feat. 54 Ultra) - Single\tDance\t0\t2\nfeel the rhythm\t\t3:28\torion & kharmatic\tfeel the rhythm - Single\tElectronic\t0\t1\nMake U Whole\t\t7:43\tAndronicus\tMake You Whole\tHouse\t0\t1\nThe Cintamani Stone\t\t4:38\tDJ NIGGA LSD\tOlaf Jansen North Pole\tHouse\t0\t1\nDevotion\t\t2:16\tLance Savali\tDevotion - Single\tElectronic\t0\t3\nVision\t\t5:04\tPalace\tVision - Single\tHouse\t0\t3\nAlchemy\t\t3:54\tRad&Co\tAlchemy - Single\tHouse\t0\t4\nGood 4 U\t\t3:28\tLuuk Van Dijk & Kolter\tGood 4 U - Single\tDance\t0\t3\nWhen I Was a Child (2018 Edit)\t\t6:45\tDJ Sly\tYousel Experience # 5\tHouse\t0\t1\nBerlin\t\t3:07\tDJ CARPET\tBerlin - Single\tAmbient\t0\t4\nThis Girl (Extended Mix)\t\t4:01\tAudiogroove\tClubtraxxx Vol.17 - Session 1\tDance\t0\t2\nToo Much For Me\t\t2:34\tSELKER\tToo Much For Me - Single\tDance\t0\t2\nTricks You Play\t\t2:45\tGABESRXDA\tTricks You Play - Single\tDance\t0\t2\nCabana\t\t3:05\tRool\u00e9h\tSome Time - EP\tHouse\t0\t2\nShow Me Love\t\t4:29\tRobin S.\tShow Me Love\tPop\t0\t2\nSexy Bitch (feat. Akon)\t\t3:16\tDavid Guetta\tOne More Love\tElectronica\t0\t1\nLovelee Dae (Radio Edit)\t\t3:31\tBlaze\tLovelee Dae\tDance\t0\t1\nSuperstar\t\t2:18\tAstroHertz\tSuperstar - Single\tHouse\t0\t1\nOnly Love Can Break Your Heart (Masters at Work Mix)\t\t7:42\tSaint Etienne\tCasino Classics (Deluxe Edition)\tPop\t0\t3\nLost & Found\t\t3:03\tCH@NC3\tLost & Found - Single\tDance\t0\t4\nI want you\t\t2:26\tElj\u00e9, PXRKX & Phantom Records\tI want you - Single\tDance\t0\t\nFade (feat. KimBlee) [Grant Nelson Big Room Remix]\t\t2:56\tSolu Music\tFade (feat. KimBlee) [25 Years Edition] - EP\tHouse\t0\t1\nSun Kissed Computer\t\t6:11\tAdisyn & Wassu\tSun Kissed Computer - Single\tDance\t0\t3\nGotta Be\t\t7:22\tKellie Allen\tPIV ADE Sampler '21 Pt 4 - Single\tHouse\t0\t1\nLoos\t\t7:01\tAri Bald\tLoos - Single\tHouse\t0\t3\nGroovy Thang\t\t2:48\tDTAILR\tGroovy Thang - Single\tDance\t0\t1\nPlanet Hollywood\t\t2:58\tJakkob\tPlanet Hollywood - Single\tDance\t0\t3\nCan't Get Enough! (Radio Edit)\t\t3:27\tSoulsearcher\tCan't Get Enough! (Radio Edit) - Single\tDance\t0\t\nnight lights. (trumpet rework)\t\t3:02\tSt-Amour, Thomas Asselman & Fred Paci\tnight lights. (trumpet rework) - Single\tHouse\t0\t4\nFree\t\t4:52\tDon Carlos\tMediterraneo - EP\tHouse\t0\t4\nEdge of Desire\t\t2:15\tJonas Blue & Malive\tEdge of Desire - Single\tDance\t0\t4\nCORA\u00c7AO (feat. Jesus Fernandez) [20th Anniversary Mix]\t\t2:56\tJerry Ropero, HUGEL & Mijangos\tCORA\u00c7AO (feat. Jesus Fernandez) [20th Anniversary Mix] - Single\tAfro House\t0\t1\nGot This Feeling\t\t3:35\tPreece\tGot This Feeling - Single\tDance\t0\t3\nFree Your Mind\t\t3:22\tProspa, Cloonee & Sybil\tFree Your Mind - Single\tDance\t0\t4\nSo Sweet\t\t2:34\tCan U\tSo Sweet - Single\tHouse\t0\t2\nGotta Let You Go (feat. Dominica)\t\t2:47\tFelix Leiter & Ango Tamarin\tGotta Let You Go (feat. Dominica) - Single\tHouse\t0\t4\nJust The Way You Are\t\t2:40\tMilky & Mall Grab\tJust The Way You Are - Single\tDance\t0\t\nRitmo\t\t3:04\tRaffa Fl\tRitmo - Single\tDance\t0\t4\nAdventure of a Lifetime\t\t4:24\tColdplay\tA Head Full of Dreams\tAlternative\t0\t2\nMove Your Body\t\t3:16\tMarshall Jefferson & Solardo\tMove Your Body - Single\tDance\t0\t1\nMove Your Body\t\t3:52\tXpansions\tMove Your Body (Elevation) - EP\tDance\t0\t2\nSend Me The Addy\t\t3:12\tWoodcamp & D38\tSend Me The Addy - Single\tElectronic\t0\t1\nEatin' Good\t\t3:42\tWoodcamp\tEatin' Good - Single\tDance\t0\t2\nOut of My Life (feat. Alexandra Prince)\t\t3:14\tBen Delay\tOut of My Life (feat. Alexandra Prince) [Remixes] - EP\tDance\t0\t1\nWon't Look Back\t\t4:30\tDuke Dumont\tWon\u2019t Look Back - Single\tDance\t0\t3\nDreams\t\t3:56\tProspa\tFree Your Mind\tDance\t0\t1\nBaby\t\t3:13\tProspa & Murda Beatz\tBaby - Single\tDance\t0\t1\nHeard Word\t\t6:43\tLost & Found\tNew Beginnings - Single\tDance\t0\t1\nHouse Every Weekend\t\t4:57\tDavid Zowie\tHouse Every Weekend (Remixes) - EP\tDance\t0\t1\nSe Me Nota (Agarrame)\t\t2:56\tOmega, Chimbala & B one El Productor De Oro\tSe Me Nota (Agarrame) - Single\tLatin\t0\t2\ntu caf\u00e9 caf\u00e9\t\t4:45\tInganam\u00f3rte\ttu caf\u00e9 caf\u00e9 - Single\tElectronic\t0\t\nShow Me Love (Extended Mix)\t\t5:26\tDoctor Y\tShow Me Love (Extended Mix) - Single\tDance\t0\t\nRivet Gun\t\t2:18\tMother Soki\tRivet Gun - Single\tIndie Pop\t0\t1\nI Need You\t\t2:55\tTWOFACED & Nikita W\tI Need You - Single\tDance\t0\t\nLoca People (What the F**k!\") [Radio Edit]\t\t3:32\tSak Noel\tDo It All Night, Vol. 2\tDance\t0\t\nParadise\t\t3:37\tSade\tThe Best of Sade\tR&B/Soul\t0\t\nFeel (feat. Sena Sener) [Radio Edit]\t\t2:53\tMahmut Orhan\tFeel (feat. Sena Sener) [Radio Edit] - Single\tDance\t0\t\nPon De Replay\t\t4:18\tEmie\tPon De Replay - Single\tElectronic\t0\t1\nMidnight (Chris Stussy Remix)\t\t4:08\tSolaris Heights\tMidnight (Chris Stussy Remix) - Single\tHouse\t0\t\nStill Sincere (feat. PinkPantheress) [MK Dub]\t\t5:15\tMJ Cole\tStill Sincere (MK Dub) [feat. PinkPantheress] - Single\tDance\t0\t\nMotivation\t\t2:43\tRylo & Le Prof\tMotivation - Single\tDance\t0\t1\nDrift\t\t4:30\tBonobo\tDistance in Static\tElectronic\t0\t\nLove Reigns\t\t4:54\tMall Grab\tWhat I Breathe\tElectronic\t0\t2\n";
   dbAll().then(async recs => {
     recs.sort((a, b) => a.id.localeCompare(b.id)).forEach(r => cds.push(fromRecord(r)));

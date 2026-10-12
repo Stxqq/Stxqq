@@ -1,0 +1,47 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'de.stxqq.jewel'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'de.stxqq.jewel'
+        minSdk 23
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    sourceSets {
+        main.assets.srcDirs += "$buildDir/generated/webAssets"
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.11.0'
+}
+
+// Turn the web player (cd-player/index.html) into a full offline page:
+// add the document skeleton and point the three.js import map at the bundled copy.
+def webAssets = tasks.register('copyWebPlayer') {
+    def src = rootProject.file('../cd-player/index.html')
+    def out = file("$buildDir/generated/webAssets/index.html")
+    inputs.file src
+    outputs.file out
+    doLast {
+        def html = src.getText('UTF-8')
+            .replace('https://cdn.jsdelivr.net/npm/three@0.160.0/', './vendor/three/')
+        out.parentFile.mkdirs()
+        out.setText('<!doctype html>\n<html lang="de">\n<head>\n<meta charset="utf-8">\n' +
+            '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
+            '</head>\n<body>\n' + html + '\n</body>\n</html>\n', 'UTF-8')
+    }
+}
+preBuild.dependsOn webAssets
