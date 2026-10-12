@@ -105,11 +105,13 @@ body {
 .own-item { display: flex; align-items: center; gap: 10px; font-size: .9rem; }
 .own-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .own-item button { font: inherit; font-size: .8rem; color: var(--danger); background: none; border: 0; cursor: pointer; padding: 6px; }
+.drop { position: fixed; inset: 12px; z-index: 20; border: 2px dashed var(--fg); border-radius: 22px; display: grid; place-items: center; background: rgba(245, 246, 248, .85); font-size: 1.2rem; font-weight: 600; pointer-events: none; }
 .fail { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; text-align: center; color: var(--muted); }
 @media (max-height: 520px) { .hint { display: none; } }
 </style>
 
 <canvas id="gl" aria-label="3D CD-Hülle. Antippen öffnet sie und spielt die CD ab."></canvas>
+<div class="drop" id="drop" hidden>Loslassen, um als CD zu importieren</div>
 <div class="fail" id="fail" hidden>3D-Grafik wird auf diesem Gerät nicht unterstützt.</div>
 
 <main class="app" id="app">
@@ -142,16 +144,20 @@ body {
 <div class="sheet-wrap" id="sheetWrap" hidden>
   <form class="sheet" id="sheet" novalidate>
     <h2>Eigene CD brennen</h2>
-    <p>Wähle ein Playlist-Cover und deine Songs. Das Cover wird auf die CD gedruckt.</p>
+    <p>Wähle deine Songs. Ohne eigenes Cover nimmt die App das Albumcover aus der ersten Datei.</p>
     <label class="field">Name der Playlist
       <input type="text" id="cdName" maxlength="40" placeholder="z. B. Sommer 2026">
     </label>
-    <label class="field">Cover (Bild)
+    <label class="field">Cover (optional)
       <input type="file" id="cdCover" accept="image/*">
     </label>
     <label class="field">Songs (MP3, M4A …)
-      <input type="file" id="cdSongs" accept="audio/*" multiple>
+      <input type="file" id="cdSongs" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg" multiple>
     </label>
+    <label class="field">… oder ganzen Ordner importieren (jeder Unterordner wird eine CD)
+      <input type="file" id="cdFolder" webkitdirectory multiple>
+    </label>
+    <p>Tipp: Du kannst Dateien und Ordner auch einfach auf die App ziehen. Cover und Songnamen werden automatisch aus den Dateien gelesen.</p>
     <div class="err" id="err"></div>
     <div class="row">
       <button type="button" class="btn" id="cancelBtn">Abbrechen</button>
@@ -652,7 +658,7 @@ const Scene = (() => {
   const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   function renderInfo() {
     const cd = curCd(), t = curTrack();
-    $('npCd').textContent = `${cd.name} · ${cd.demo ? 'Demo-CD' : 'Eigene CD'} · ${state.track + 1}/${cd.tracks.length}`;
+    $('npCd').textContent = `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}`;
     $('npTitle').textContent = t.title;
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: cd.name, album: cd.name, artwork: [{ src: cd.cover, sizes: '400x400' }] }); } catch (e) {}
@@ -754,7 +760,7 @@ const Scene = (() => {
   }
   function fromRecord(rec) {
     return { id: rec.id, name: rec.name, cover: rec.cover, demo: false,
-      tracks: rec.songs.map(s => ({ title: s.title, url: URL.createObjectURL(s.blob) })) };
+      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', url: URL.createObjectURL(s.blob) })) };
   }
   function squareCover(file) {
     return new Promise((res) => {
@@ -790,21 +796,165 @@ const Scene = (() => {
   $('addBtn').addEventListener('click', () => { $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; $('cdName').focus(); });
   $('cancelBtn').addEventListener('click', () => { $('sheetWrap').hidden = true; });
   $('sheetWrap').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('sheetWrap').hidden = true; });
+  /* ---------- tag reading (ID3v2 for MP3, iTunes atoms for M4A) ---------- */
+  const AUDIO_RE = /\.(mp3|m4a|aac|mp4|wav|flac|ogg|oga|opus)$/i;
+  const isAudio = (f) => AUDIO_RE.test(f.name) || (f.type || '').startsWith('audio/');
+  const latin1 = (b) => { let s = ''; for (const x of b) s += String.fromCharCode(x); return s; };
+  function decodeText(b) {
+    const enc = b[0], body = b.subarray(1);
+    try {
+      if (enc === 1 || enc === 2) return new TextDecoder(enc === 1 ? 'utf-16' : 'utf-16be').decode(body).replace(/\0/g, '').trim();
+      if (enc === 3) return new TextDecoder('utf-8').decode(body).replace(/\0/g, '').trim();
+    } catch (e) {}
+    return latin1(body).replace(/\0/g, '').trim();
+  }
+  function readId3(buf) {
+    const u = new Uint8Array(buf), out = {};
+    if (latin1(u.subarray(0, 3)) !== 'ID3') return out;
+    const ver = u[3], size = (u[6] << 21) | (u[7] << 14) | (u[8] << 7) | u[9];
+    let p = 10;
+    if (u[5] & 0x40) p += ver === 4 ? ((u[10] << 21) | (u[11] << 14) | (u[12] << 7) | u[13]) : (((u[10] << 24) | (u[11] << 16) | (u[12] << 8) | u[13]) + 4);
+    const end = Math.min(u.length, 10 + size), idLen = ver === 2 ? 3 : 4, hdr = ver === 2 ? 6 : 10;
+    while (p + hdr < end) {
+      const id = latin1(u.subarray(p, p + idLen));
+      if (!/^[A-Z0-9]+$/.test(id)) break;
+      const len = ver === 2 ? (u[p + 3] << 16) | (u[p + 4] << 8) | u[p + 5]
+        : ver === 4 ? (u[p + 4] << 21) | (u[p + 5] << 14) | (u[p + 6] << 7) | u[p + 7]
+        : ((u[p + 4] << 24) | (u[p + 5] << 16) | (u[p + 6] << 8) | u[p + 7]) >>> 0;
+      const d = u.subarray(p + hdr, p + hdr + len);
+      if (id === 'TIT2' || id === 'TT2') out.title = decodeText(d);
+      else if (id === 'TPE1' || id === 'TP1') out.artist = decodeText(d);
+      else if (id === 'TALB' || id === 'TAL') out.album = decodeText(d);
+      else if ((id === 'APIC' || id === 'PIC') && !out.picture) {
+        const enc = d[0]; let q = 1, mime = 'image/jpeg';
+        if (id === 'APIC') { const z = d.indexOf(0, q); mime = latin1(d.subarray(q, z)) || mime; q = z + 1; } else q += 3;
+        q += 1; // picture type
+        if (enc === 1 || enc === 2) { while (q + 1 < d.length && !(d[q] === 0 && d[q + 1] === 0)) q += 2; q += 2; }
+        else { while (q < d.length && d[q] !== 0) q++; q += 1; }
+        if (mime.indexOf('/') < 0) mime = 'image/' + mime.toLowerCase().replace('jpg', 'jpeg');
+        out.picture = new Blob([d.slice(q)], { type: mime });
+      }
+      p += hdr + len;
+    }
+    return out;
+  }
+  function readMp4(buf) {
+    const v = new DataView(buf), out = {};
+    const walk = (start, end, path) => {
+      let p = start;
+      while (p + 8 <= end) {
+        let size = v.getUint32(p); const type = latin1(new Uint8Array(buf, p + 4, 4));
+        if (size === 1 && p + 16 <= end) size = Number(v.getBigUint64(p + 8));
+        if (size < 8 || p + size > end) break;
+        if (type === 'moov' || type === 'udta' || type === 'ilst') walk(p + 8, p + size, path + '/' + type);
+        else if (type === 'meta') walk(p + 12, p + size, path + '/meta');
+        else if (path.endsWith('/ilst')) {
+          const dataAt = p + 8;
+          if (latin1(new Uint8Array(buf, dataAt + 4, 4)) === 'data') {
+            const kind = v.getUint32(dataAt + 8) & 0xffffff, payload = new Uint8Array(buf, dataAt + 16, v.getUint32(dataAt) - 16);
+            if (type === '\xa9nam') out.title = new TextDecoder().decode(payload);
+            else if (type === '\xa9ART') out.artist = new TextDecoder().decode(payload);
+            else if (type === '\xa9alb') out.album = new TextDecoder().decode(payload);
+            else if (type === 'covr' && !out.picture) out.picture = new Blob([payload.slice()], { type: kind === 14 ? 'image/png' : 'image/jpeg' });
+          }
+        }
+        p += size;
+      }
+    };
+    walk(0, buf.byteLength, '');
+    return out;
+  }
+  async function readTags(file) {
+    try {
+      if (/\.(m4a|mp4|aac)$/i.test(file.name)) {
+        // moov is usually near the start for iTunes files, else at the end
+        const head = await file.slice(0, Math.min(file.size, 4 * 1024 * 1024)).arrayBuffer();
+        let tags = readMp4(head);
+        if (!tags.title && file.size > head.byteLength) tags = readMp4(await file.arrayBuffer());
+        return tags;
+      }
+      const first = new Uint8Array(await file.slice(0, 10).arrayBuffer());
+      if (latin1(first.subarray(0, 3)) !== 'ID3') return {};
+      const size = (first[6] << 21) | (first[7] << 14) | (first[8] << 7) | first[9];
+      return readId3(await file.slice(0, size + 10).arrayBuffer());
+    } catch (e) { return {}; }
+  }
+
+  /* ---------- import ---------- */
+  async function createCd(name, files, coverFile) {
+    const audio = files.filter(isAudio).sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, { numeric: true }));
+    if (!audio.length) return null;
+    const songs = [];
+    let embedded = null, album = '';
+    for (const f of audio) {
+      const tags = await readTags(f);
+      if (!embedded && tags.picture) embedded = tags.picture;
+      if (!album && tags.album) album = tags.album;
+      songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f });
+    }
+    const cdName = name || album || 'Meine Playlist';
+    const cover = (coverFile && await squareCover(coverFile)) || (embedded && await squareCover(embedded)) || coverFromName(cdName);
+    const rec = { id: 'own-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: cdName, cover, songs };
+    if (!await dbPut(rec)) console.warn('CD konnte nicht dauerhaft gespeichert werden.');
+    cds.push(fromRecord(rec));
+    return cds.length - 1;
+  }
+  function groupByFolder(files) {
+    const groups = new Map();
+    files.filter(isAudio).forEach(f => {
+      const parts = (f.webkitRelativePath || f._path || f.name).split('/');
+      const key = parts.length > 1 ? parts[parts.length - 2] : '';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(f);
+    });
+    return groups;
+  }
+  async function importGroups(files, fallbackName, coverFile) {
+    const groups = groupByFolder(files);
+    if (!groups.size) return 0;
+    let lastIdx = null;
+    for (const [folder, list] of groups) lastIdx = await createCd(groups.size === 1 && fallbackName ? fallbackName : folder, list, coverFile);
+    renderThumbs();
+    if (lastIdx !== null) switchCd(lastIdx);
+    return groups.size;
+  }
+
   $('sheet').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const songs = [...$('cdSongs').files], coverFile = $('cdCover').files[0];
-    const name = $('cdName').value.trim() || 'Meine Playlist';
-    if (!songs.length) { $('err').textContent = 'Wähle mindestens einen Song aus.'; return; }
-    const cover = (coverFile && await squareCover(coverFile)) || coverFromName(name);
-    const rec = { id: 'own-' + Date.now(), name, cover,
-      songs: songs.map(f => ({ title: f.name.replace(/\.[^.]+$/, ''), blob: f })) };
-    const saved = await dbPut(rec);
-    cds.push(fromRecord(rec));
-    renderThumbs();
-    $('sheet').reset();
+    const files = [...$('cdSongs').files, ...$('cdFolder').files], coverFile = $('cdCover').files[0];
+    if (!files.some(isAudio)) { $('err').textContent = 'Wähle mindestens einen Song oder einen Ordner mit Songs aus.'; return; }
+    $('err').textContent = 'Wird importiert …';
+    await importGroups(files, $('cdName').value.trim(), coverFile);
+    $('sheet').reset(); $('err').textContent = '';
     $('sheetWrap').hidden = true;
-    switchCd(cds.length - 1);
-    if (!saved) console.warn('CD konnte nicht dauerhaft gespeichert werden.');
+  });
+
+  /* drag & drop files or whole folders onto the app */
+  async function entriesToFiles(entry, path = '') {
+    if (entry.isFile) return new Promise(res => entry.file(f => { f._path = path + f.name; res([f]); }, () => res([])));
+    if (!entry.isDirectory) return [];
+    const reader = entry.createReader(), all = [];
+    for (;;) {
+      const batch = await new Promise(res => reader.readEntries(res, () => res([])));
+      if (!batch.length) break;
+      all.push(...batch);
+    }
+    const nested = await Promise.all(all.map(en => entriesToFiles(en, path + entry.name + '/')));
+    return nested.flat();
+  }
+  let dragDepth = 0;
+  addEventListener('dragenter', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragDepth++; $('drop').hidden = false; } });
+  addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; $('drop').hidden = true; } });
+  addEventListener('dragover', (e) => e.preventDefault());
+  addEventListener('drop', async (e) => {
+    e.preventDefault(); dragDepth = 0; $('drop').hidden = true;
+    const items = [...(e.dataTransfer?.items || [])];
+    let files = [];
+    const entries = items.map(it => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+    if (entries.length) files = (await Promise.all(entries.map(en => entriesToFiles(en)))).flat();
+    else files = [...(e.dataTransfer?.files || [])];
+    const n = await importGroups(files, '', null);
+    if (!n) { $('err').textContent = 'In den gezogenen Dateien waren keine Songs.'; renderOwn(); $('sheetWrap').hidden = false; }
   });
 
   /* ================= boot ================= */
