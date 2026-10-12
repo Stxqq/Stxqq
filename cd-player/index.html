@@ -221,14 +221,14 @@ const Scene = (() => {
   box(W, fr, T, 0, H / 2 - fr / 2, 0, railMat); box(W, fr, T, 0, -H / 2 + fr / 2, 0, railMat);
   box(fr, H, T, -W / 2 + fr / 2, 0, 0, railMat); box(fr, H, T, W / 2 - fr / 2, 0, 0, railMat);
   const ri = .1, rw = .016;
-  box(W - ri * 2, rw, T * .7, 0, H / 2 - ri, -T * .1, railMat); box(W - ri * 2, rw, T * .7, 0, -H / 2 + ri, -T * .1, railMat);
-  box(rw, H - ri * 2, T * .7, W / 2 - ri, 0, -T * .1, railMat); box(rw, H - ri * 2, T * .7, -W / 2 + ri, 0, -T * .1, railMat);
+  box(W - ri * 2, rw, .014, 0, H / 2 - ri, -T / 2 + .009, railMat); box(W - ri * 2, rw, .014, 0, -H / 2 + ri, -T / 2 + .009, railMat);
+  box(rw, H - ri * 2, .014, W / 2 - ri, 0, -T / 2 + .009, railMat); box(rw, H - ri * 2, .014, -W / 2 + ri, 0, -T / 2 + .009, railMat);
   [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([sx, sy]) => {
     box(.2, .022, T * .8, sx * (W / 2 - .2), sy * (H / 2 - .16), 0, railMat);
     box(.022, .2, T * .8, sx * (W / 2 - .16), sy * (H / 2 - .2), 0, railMat);
   });
   box(.05, .3, T, -W / 2 + .07, 0, 0, railMat);   // spine clip
-  const rosette = new THREE.Mesh(new THREE.CylinderGeometry(.085, .085, .03, 40).rotateX(Math.PI / 2), railMat);
+  const rosette = new THREE.Mesh(new THREE.TorusGeometry(.06, .006, 8, 48), railMat);
   rosette.position.z = -T / 2 + .02; body.add(rosette);
 
   // disc
@@ -238,11 +238,12 @@ const Scene = (() => {
   disc.add(new THREE.Mesh(new THREE.RingGeometry(.2, R - .008, 128, 1), labelMat));
   const silver = new THREE.MeshStandardMaterial({ color: 0xe6e9ee, metalness: 1, roughness: .14, envMapIntensity: 1.4 });
   const band = new THREE.Mesh(new THREE.RingGeometry(R - .008, R, 128, 1), silver); band.position.z = .0005; disc.add(band);
-  const under = new THREE.Mesh(new THREE.RingGeometry(.075, R, 128, 1), silver); under.rotation.y = Math.PI; under.position.z = -.004; disc.add(under);
+  const under = new THREE.Mesh(new THREE.RingGeometry(.2, R, 128, 1), silver); under.rotation.y = Math.PI; under.position.z = -.004; disc.add(under);
   const hub = new THREE.Mesh(new THREE.RingGeometry(.075, .2, 96, 1),
-    new THREE.MeshPhysicalMaterial({ color: 0xf2f4f7, roughness: .1, transparent: true, opacity: .18, clearcoat: 1, envMapIntensity: 1.8 }));
+    new THREE.MeshPhysicalMaterial({ color: 0xc9d0da, roughness: .1, transparent: true, opacity: .1, clearcoat: 1, envMapIntensity: 1, depthWrite: false }));
   disc.add(hub);
-  [.1, .14, .2].forEach(r => { const ring = new THREE.Mesh(new THREE.TorusGeometry(r, .004, 6, 80), silver); ring.position.z = .002; disc.add(ring); });
+  const ringMat = new THREE.MeshStandardMaterial({ color: 0x8e96a3, metalness: .9, roughness: .25 });
+  [.075, .1, .14, .2].forEach(r => { const ring = new THREE.Mesh(new THREE.TorusGeometry(r, .0035, 6, 80), ringMat); ring.position.z = .002; disc.add(ring); });
 
   // lid on a hinge (left edge)
   const hinge = new THREE.Group(); hinge.position.set(-W / 2, 0, T / 2 + .006); body.add(hinge);
@@ -257,13 +258,18 @@ const Scene = (() => {
   box(.04, .22, .03, W - .01, 0, -.01, railMat, hinge);
 
   // soft contact shadow (a blurred texture, no shadow maps)
-  const sc = document.createElement('canvas'); sc.width = sc.height = 128;
-  const sg = sc.getContext('2d'), grd = sg.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grd.addColorStop(0, 'rgba(20,24,34,.32)'); grd.addColorStop(.55, 'rgba(20,24,34,.12)'); grd.addColorStop(1, 'rgba(20,24,34,0)');
-  sg.fillStyle = grd; sg.fillRect(0, 0, 128, 128);
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.1),
+  const sc = document.createElement('canvas'); sc.width = sc.height = 256;
+  const sg = sc.getContext('2d');
+  const blob = (r, a) => {
+    const gr = sg.createRadialGradient(128, 128, 0, 128, 128, r);
+    gr.addColorStop(0, `rgba(14,16,24,${a})`); gr.addColorStop(.5, `rgba(14,16,24,${a * .55})`); gr.addColorStop(1, 'rgba(14,16,24,0)');
+    sg.fillStyle = gr; sg.fillRect(0, 0, 256, 256);
+  };
+  blob(128, .55);  // wide soft shadow
+  blob(70, .6);    // dark core right under the case
+  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.25),
     new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, toneMapped: false }));
-  shadow.rotation.x = -Math.PI / 2; shadow.position.y = -.8; scene.add(shadow);
+  shadow.rotation.x = -Math.PI / 2; shadow.position.set(.12, -.7, -.15); scene.add(shadow);
 
   const pickables = [back, lid, disc.children[0], hub];
 
@@ -349,9 +355,10 @@ const Scene = (() => {
     root.position.x = st.shift * .62;
     root.position.y = Math.sin(t * .9) * .03 * sway + st.fly;
     hinge.rotation.y = -st.lid * 2.75;
-    shadow.position.x = root.position.x - st.lid * .45;
+    shadow.position.x = .12 + root.position.x - st.lid * .45;
     shadow.scale.x = 1 + st.lid * .7;
     shadow.material.opacity = Math.max(0, 1 - Math.abs(st.fly) / 1.5);
+    shadow.scale.z = 1 + (root.position.y - st.fly) * 1.5;
 
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
