@@ -109,11 +109,20 @@ body {
 .own-item span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .own-item button { font: inherit; font-size: .8rem; color: var(--danger); background: none; border: 0; cursor: pointer; padding: 6px; }
 .drop { position: fixed; inset: 12px; z-index: 20; border: 2px dashed var(--fg); border-radius: 22px; display: grid; place-items: center; background: rgba(245, 246, 248, .85); font-size: 1.2rem; font-weight: 600; pointer-events: none; }
+.toast {
+  position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
+  width: min(520px, calc(100% - 32px)); box-sizing: border-box; z-index: 15;
+  background: var(--ink); color: var(--ink-fg); border-radius: 14px; padding: 14px 18px;
+  font-size: .95rem; line-height: 1.4; box-shadow: 0 12px 30px rgba(20, 24, 34, .25);
+}
+.ctl.add.pulse { color: var(--ink-fg); background: var(--ink); animation: pulse 1.2s ease-in-out infinite; }
+@keyframes pulse { 50% { transform: scale(1.12); } }
 .fail { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; text-align: center; color: var(--muted); }
 @media (max-height: 520px) { .hint { display: none; } }
 </style>
 
 <canvas id="gl" aria-label="3D CD-Hülle. Antippen öffnet sie und spielt die CD ab."></canvas>
+<div class="toast" id="toast" role="status" hidden></div>
 <div class="drop" id="drop" hidden>Loslassen, um als CD zu importieren</div>
 <div class="fail" id="fail" hidden>3D-Grafik wird auf diesem Gerät nicht unterstützt.</div>
 
@@ -785,7 +794,7 @@ const Scene = (() => {
     if (on === state.playing) return;
     if (on && !playable(curTrack())) {
       const i = firstPlayable(state.track);
-      if (i < 0) { $('hint').textContent = 'Auf dieser CD fehlen noch die Song-Dateien. Importiere sie mit +, sie werden automatisch zugeordnet.'; return; }
+      if (i < 0) { setOpen(true); $('app').classList.add('is-open'); toast('Auf dieser CD sind noch keine Song-Dateien. Tippe auf + und wähle deine Songs, sie werden automatisch einsortiert.'); $('addBtn').classList.add('pulse'); return; }
       state.track = i; loadTrack();
     }
     state.playing = on;
@@ -797,6 +806,15 @@ const Scene = (() => {
     $('playBtn').setAttribute('aria-label', on ? 'Pause' : 'OK – abspielen');
     $('hint').textContent = on ? 'OK drücken zum Pausieren' : 'Drücke OK – die Hülle dreht sich und öffnet';
     if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+  }
+  function toggle() {
+    if (!state.playing && state.open) { setOpen(false); $('app').classList.remove('is-open'); return; }
+    setPlaying(!state.playing);
+  }
+  let toastTimer = 0;
+  function toast(msg) {
+    const el = $('toast'); el.textContent = msg; el.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
   }
   function setOpen(on) {
     if (on === state.open) return;
@@ -890,16 +908,16 @@ const Scene = (() => {
       const a = Scene.tapAction(e.clientX, e.clientY);
       if (a === 'prev') step(-1);
       else if (a === 'next') step(1);
-      else if (a === 'toggle') setPlaying(!state.playing);
+      else if (a === 'toggle') toggle();
       else if (a && a.seek !== undefined) seek(a.seek * duration());
       else if (a === 'none') { /* tap on the booklet text: ignore */ }
-      else if (Scene.hit(e.clientX, e.clientY)) setPlaying(!state.playing);
+      else if (Scene.hit(e.clientX, e.clientY)) toggle();
     }
     down = null;
   });
 
   /* ================= controls ================= */
-  $('playBtn').addEventListener('click', () => setPlaying(!state.playing));
+  $('playBtn').addEventListener('click', toggle);
   $('nextBtn').addEventListener('click', () => step(1));
   $('prevBtn').addEventListener('click', () => step(-1));
   $('progress').addEventListener('click', (e) => {
@@ -912,7 +930,7 @@ const Scene = (() => {
   });
   document.addEventListener('keydown', (e) => {
     if (!$('sheetWrap').hidden || e.target.closest('input, .progress, button')) return;
-    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); setPlaying(!state.playing); }
+    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggle(); }
     if (e.key === 'ArrowRight') step(1);
     if (e.key === 'ArrowLeft') step(-1);
   });
@@ -984,7 +1002,7 @@ const Scene = (() => {
     });
   }
 
-  $('addBtn').addEventListener('click', () => { $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; $('cdName').focus(); });
+  $('addBtn').addEventListener('click', () => { $('addBtn').classList.remove('pulse'); $('toast').hidden = true; $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; $('cdName').focus(); });
   $('cancelBtn').addEventListener('click', () => { $('sheetWrap').hidden = true; });
   $('sheetWrap').addEventListener('click', (e) => { if (e.target === e.currentTarget) $('sheetWrap').hidden = true; });
   /* ---------- tag reading (ID3v2 for MP3, iTunes atoms for M4A) ---------- */
