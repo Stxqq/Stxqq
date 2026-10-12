@@ -172,13 +172,13 @@ body {
 
 <script type="module">
 import * as THREE from 'three';
-import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
 /* ================= 3D scene =================
-   Kept light on purpose so it runs smoothly on head-unit GPUs:
-   no post-processing, no real-time shadows, no mirror, no glass refraction.
-   Clear plastic = thin transparent panels + brighter rails that catch the studio reflections. */
+   Modelled after the reference video: a square clear case with chunky chrome-like rails,
+   a black disc with the cover printed on it, a flat clear lid, and a soft drop shadow
+   on the white wall behind. Kept cheap: no post-processing, one small soft shadow map
+   rendered from two invisible proxy boxes. */
 const Scene = (() => {
   const canvas = document.getElementById('gl');
   let renderer;
@@ -191,93 +191,138 @@ const Scene = (() => {
   }
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.15;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.VSMShadowMap;
 
   const scene = new THREE.Scene();
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .03).texture;
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), .02).texture;
   pmrem.dispose();
-  const sun = new THREE.DirectionalLight(0xffffff, 1.2); sun.position.set(2, 4, 5); scene.add(sun);
 
   const camera = new THREE.PerspectiveCamera(30, 1, .1, 50);
 
-  /* materials */
-  const panelMat = new THREE.MeshPhysicalMaterial({
-    color: 0xffffff, roughness: .04, metalness: 0, transparent: true, opacity: .14,
-    clearcoat: 1, clearcoatRoughness: .03, envMapIntensity: 1.6, depthWrite: false });
-  const railMat = new THREE.MeshPhysicalMaterial({
-    color: 0xd9dee6, roughness: .08, metalness: 0, transparent: true, opacity: .55,
-    clearcoat: 1, clearcoatRoughness: .03, envMapIntensity: 2.2 });
-  const edgeMat = new THREE.LineBasicMaterial({ color: 0x9aa1ad, transparent: true, opacity: .55 });
+  /* light + wall that receives the soft drop shadow */
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4);
+  sun.position.set(-1.2, 2.6, 5);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(512, 512);
+  sun.shadow.radius = 14; sun.shadow.blurSamples = 12;
+  Object.assign(sun.shadow.camera, { left: -3.5, right: 3.5, top: 3.5, bottom: -3.5, near: .5, far: 12 });
+  scene.add(sun, sun.target);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ color: 0x1a1e28, opacity: .2 }));
+  wall.position.z = -1.1; wall.receiveShadow = true; scene.add(wall);
 
-  /* case */
-  const W = 1.42, H = 1.25, T = .05;
+  /* materials */
+  const chrome = new THREE.MeshPhysicalMaterial({
+    color: 0xeef1f5, metalness: .65, roughness: .12, clearcoat: 1, clearcoatRoughness: .05,
+    envMapIntensity: 1.5, transparent: true, opacity: .9 });
+  const clear = new THREE.MeshPhysicalMaterial({
+    color: 0xffffff, roughness: .05, metalness: 0, transparent: true, opacity: .1,
+    clearcoat: 1, envMapIntensity: 1.2, depthWrite: false, side: THREE.DoubleSide });
+  const proxyMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false });
+
+  /* helpers */
+  const S = 1.3;               // case is square, like the reference
+  const T = .06;               // tray depth
+  const tube = (pts, r, parent, closed = false, mat = chrome) => {
+    const curve = new THREE.CatmullRomCurve3(pts.map(p => new THREE.Vector3(...p)), closed, 'catmullrom', .02);
+    const m = new THREE.Mesh(new THREE.TubeGeometry(curve, Math.max(24, pts.length * 12), r, 8, closed), mat);
+    parent.add(m); return m;
+  };
+  // rounded rectangle as a point list (z constant)
+  const rrect = (w, h, r, z, seg = 6) => {
+    const pts = [], cs = [[w / 2 - r, h / 2 - r, 0], [-w / 2 + r, h / 2 - r, Math.PI / 2], [-w / 2 + r, -h / 2 + r, Math.PI], [w / 2 - r, -h / 2 + r, Math.PI * 1.5]];
+    cs.forEach(([cx, cy, a0]) => { for (let i = 0; i <= seg; i++) { const a = a0 + i / seg * Math.PI / 2; pts.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, z]); } });
+    return pts;
+  };
+
   const root = new THREE.Group(); scene.add(root);
   const body = new THREE.Group(); root.add(body);
-  const outline = (geo, parent, pos) => { const l = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 30), edgeMat); l.position.copy(pos); parent.add(l); };
-  const box = (w, h, d, x, y, z, mat, parent = body, r = .006) => {
-    const g = new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * .99);
-    const m = new THREE.Mesh(g, mat); m.position.set(x, y, z); parent.add(m); return m;
-  };
 
-  // tray: back panel + chunky clear frame with inner rails (like the reference case)
-  const back = box(W, H, .008, 0, 0, -T / 2, panelMat, body, .02);
-  outline(new THREE.BoxGeometry(W, H, .008), body, new THREE.Vector3(0, 0, -T / 2));
-  const fr = .045;
-  box(W, fr, T, 0, H / 2 - fr / 2, 0, railMat); box(W, fr, T, 0, -H / 2 + fr / 2, 0, railMat);
-  box(fr, H, T, -W / 2 + fr / 2, 0, 0, railMat); box(fr, H, T, W / 2 - fr / 2, 0, 0, railMat);
-  const ri = .1, rw = .016;
-  box(W - ri * 2, rw, .014, 0, H / 2 - ri, -T / 2 + .009, railMat); box(W - ri * 2, rw, .014, 0, -H / 2 + ri, -T / 2 + .009, railMat);
-  box(rw, H - ri * 2, .014, W / 2 - ri, 0, -T / 2 + .009, railMat); box(rw, H - ri * 2, .014, -W / 2 + ri, 0, -T / 2 + .009, railMat);
+  /* tray: clear back + stacked rounded rims (gives the layered edge look) */
+  const backShape = new THREE.Shape();
+  { const w = S / 2, r = .07; backShape.moveTo(-w + r, -w); backShape.lineTo(w - r, -w); backShape.quadraticCurveTo(w, -w, w, -w + r);
+    backShape.lineTo(w, w - r); backShape.quadraticCurveTo(w, w, w - r, w); backShape.lineTo(-w + r, w); backShape.quadraticCurveTo(-w, w, -w, w - r);
+    backShape.lineTo(-w, -w + r); backShape.quadraticCurveTo(-w, -w, -w + r, -w); }
+  const back = new THREE.Mesh(new THREE.ShapeGeometry(backShape, 8), clear); back.position.z = -T / 2; body.add(back);
+  [[-T / 2, .018], [-T / 6, .013], [T / 6, .013], [T / 2, .018]].forEach(([z, r]) => tube(rrect(S, S, .07, z), r, body, true));
+  // inner rail just inside the rim
+  tube(rrect(S - .1, S - .1, .05, T / 2 - .004), .007, body, true);
+
+  // corner L-brackets, doubled like the reference
+  const L = (sx, sy, inset, len, z, r) => {
+    const x = sx * (S / 2 - inset), y = sy * (S / 2 - inset);
+    tube([[x - sx * len, y, z], [x - sx * .02, y, z], [x, y - sy * .02, z], [x, y - sy * len, z]], r, body);
+  };
   [[1, 1], [1, -1], [-1, 1], [-1, -1]].forEach(([sx, sy]) => {
-    box(.2, .022, T * .8, sx * (W / 2 - .2), sy * (H / 2 - .16), 0, railMat);
-    box(.022, .2, T * .8, sx * (W / 2 - .16), sy * (H / 2 - .2), 0, railMat);
+    L(sx, sy, .1, .3, T / 2 - .006, .018);
+    L(sx, sy, .14, .26, T / 2 - .01, .01);
   });
-  box(.05, .3, T, -W / 2 + .07, 0, 0, railMat);   // spine clip
-  const rosette = new THREE.Mesh(new THREE.TorusGeometry(.06, .006, 8, 48), railMat);
-  rosette.position.z = -T / 2 + .02; body.add(rosette);
-
-  // disc
-  const R = .58;
-  const disc = new THREE.Group(); disc.position.set(.02, 0, -T / 2 + .022); body.add(disc);
-  const labelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .32, metalness: .08, envMapIntensity: 1 });
-  disc.add(new THREE.Mesh(new THREE.RingGeometry(.2, R - .008, 128, 1), labelMat));
-  const silver = new THREE.MeshStandardMaterial({ color: 0xe6e9ee, metalness: 1, roughness: .14, envMapIntensity: 1.4 });
-  const band = new THREE.Mesh(new THREE.RingGeometry(R - .008, R, 128, 1), silver); band.position.z = .0005; disc.add(band);
-  const under = new THREE.Mesh(new THREE.RingGeometry(.2, R, 128, 1), silver); under.rotation.y = Math.PI; under.position.z = -.004; disc.add(under);
-  const hub = new THREE.Mesh(new THREE.RingGeometry(.075, .2, 96, 1),
-    new THREE.MeshPhysicalMaterial({ color: 0xc9d0da, roughness: .1, transparent: true, opacity: .1, clearcoat: 1, envMapIntensity: 1, depthWrite: false }));
-  disc.add(hub);
-  const ringMat = new THREE.MeshStandardMaterial({ color: 0x8e96a3, metalness: .9, roughness: .25 });
-  [.075, .1, .14, .2].forEach(r => { const ring = new THREE.Mesh(new THREE.TorusGeometry(r, .0035, 6, 80), ringMat); ring.position.z = .002; disc.add(ring); });
-
-  // lid on a hinge (left edge)
-  const hinge = new THREE.Group(); hinge.position.set(-W / 2, 0, T / 2 + .006); body.add(hinge);
-  const lid = box(W, H, .012, W / 2, 0, 0, panelMat, hinge, .02);
-  outline(new THREE.BoxGeometry(W, H, .012), hinge, new THREE.Vector3(W / 2, 0, 0));
-  const lf = .035;
-  box(W, lf, .018, W / 2, H / 2 - lf / 2, 0, railMat, hinge); box(W, lf, .018, W / 2, -H / 2 + lf / 2, 0, railMat, hinge);
-  box(lf, H, .018, lf / 2, 0, 0, railMat, hinge); box(lf, H, .018, W - lf / 2, 0, 0, railMat, hinge);
-  box(W - .16, .012, .014, W / 2, H / 2 - .08, 0, railMat, hinge); box(W - .16, .012, .014, W / 2, -H / 2 + .08, 0, railMat, hinge);
-  box(.012, H - .16, .014, W - .08, 0, 0, railMat, hinge);
-  [H / 2 - .18, -H / 2 + .18].forEach(y => { const k = new THREE.Mesh(new THREE.CylinderGeometry(.02, .02, .16, 20), railMat); k.position.set(0, y, -.012); hinge.add(k); });
-  box(.04, .22, .03, W - .01, 0, -.01, railMat, hinge);
-
-  // soft contact shadow (a blurred texture, no shadow maps)
-  const sc = document.createElement('canvas'); sc.width = sc.height = 256;
-  const sg = sc.getContext('2d');
-  const blob = (r, a) => {
-    const gr = sg.createRadialGradient(128, 128, 0, 128, 128, r);
-    gr.addColorStop(0, `rgba(14,16,24,${a})`); gr.addColorStop(.5, `rgba(14,16,24,${a * .55})`); gr.addColorStop(1, 'rgba(14,16,24,0)');
-    sg.fillStyle = gr; sg.fillRect(0, 0, 256, 256);
+  // notches along top, bottom and right rim
+  const notch = (x, y, rot) => {
+    const m = new THREE.Mesh(new THREE.CapsuleGeometry(.017, .05, 4, 8), chrome);
+    m.position.set(x, y, T / 2 - .004); m.rotation.z = rot; body.add(m);
   };
-  blob(128, .55);  // wide soft shadow
-  blob(70, .6);    // dark core right under the case
-  const shadow = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.25),
-    new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(sc), transparent: true, depthWrite: false, toneMapped: false }));
-  shadow.rotation.x = -Math.PI / 2; shadow.position.set(.12, -.7, -.15); scene.add(shadow);
+  [-.32, -.1, .12, .34].forEach(x => { notch(x, S / 2 - .045, Math.PI / 2); notch(x, -S / 2 + .045, Math.PI / 2); });
+  [-.3, -.1, .1, .3].forEach(y => notch(S / 2 - .045, y, 0));
+  // little legs under the disc
+  [[-1], [1]].forEach(([s]) => tube([[s * .24, -S / 2 + .14, T / 2 - .01], [s * .3, -S / 2 + .22, T / 2 - .01], [s * .3, -S / 2 + .3, T / 2 - .01]], .007, body));
+  // C-clip on the left edge
+  const cx = -S / 2;
+  tube([[cx + .05, .2, .0], [cx - .035, .2, .0], [cx - .035, -.2, .0], [cx + .05, -.2, .0]], .011, body);
+  tube([[cx + .05, .12, T / 2], [cx - .005, .12, T / 2], [cx - .005, -.12, T / 2], [cx + .05, -.12, T / 2]], .008, body);
 
-  const pickables = [back, lid, disc.children[0], hub];
+  /* disc */
+  const R = .52;
+  const disc = new THREE.Group(); disc.position.set(.03, 0, -T / 2 + .02); body.add(disc);
+  const labelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .3, metalness: .05, envMapIntensity: .8 });
+  const label = new THREE.Mesh(new THREE.RingGeometry(.16, R, 128, 1), labelMat); disc.add(label);
+  const black = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: .25, metalness: .3 });
+  const silver = new THREE.MeshStandardMaterial({ color: 0xdfe3ea, metalness: 1, roughness: .15 });
+  const under = new THREE.Mesh(new THREE.RingGeometry(.075, R, 96, 1), silver); under.rotation.y = Math.PI; under.position.z = -.003; disc.add(under);
+  const hubBlack = new THREE.Mesh(new THREE.RingGeometry(.16, .185, 96, 1), black); hubBlack.position.z = .0004; disc.add(hubBlack);
+  const hub = new THREE.Mesh(new THREE.CircleGeometry(.16, 64),
+    new THREE.MeshPhysicalMaterial({ color: 0xd9dee6, roughness: .1, transparent: true, opacity: .35, clearcoat: 1, depthWrite: false }));
+  hub.position.z = .0003; disc.add(hub);
+  const ring = (r, w, z = .002) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, w, 6, 72), chrome); m.position.z = z; disc.add(m); };
+  ring(R, .006, 0); ring(.2, .005); ring(.155, .004); ring(.115, .006, .004); ring(.05, .008, .004);
+  for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const h = new THREE.Mesh(new THREE.TorusGeometry(.016, .004, 6, 24), chrome); h.position.set(Math.cos(a) * .085, Math.sin(a) * .085, .004); disc.add(h); }
+  // four clips holding the disc (they belong to the tray, so they do not spin)
+  [Math.PI * .3, Math.PI * .7, Math.PI * 1.3, Math.PI * 1.7].forEach(a => {
+    const c = new THREE.Mesh(new THREE.CapsuleGeometry(.011, .04, 4, 8), chrome);
+    c.position.set(.03 + Math.cos(a) * (R + .005), Math.sin(a) * (R + .005), -T / 2 + .03); c.rotation.z = a; body.add(c);
+  });
+
+  /* lid on a hinge at the left edge */
+  const hinge = new THREE.Group(); hinge.position.set(-S / 2, 0, T / 2 + .008); body.add(hinge);
+  const lidPanel = new THREE.Mesh(new THREE.ShapeGeometry(backShape, 8), clear); lidPanel.position.x = S / 2; hinge.add(lidPanel);
+  const lidGroup = new THREE.Group(); lidGroup.position.x = S / 2; hinge.add(lidGroup);
+  tube(rrect(S, S, .07, 0), .011, lidGroup, true);
+  tube(rrect(S - .03, S - .03, .06, .004), .004, lidGroup, true);
+  [-.3, .3].forEach(x => [1, -1].forEach(sy => {
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(.04, .004, 6, 24, Math.PI), chrome);
+    arc.position.set(x, sy * (S / 2 - .015), .002); arc.rotation.z = sy > 0 ? Math.PI : 0; lidGroup.add(arc);
+  }));
+
+  /* invisible shadow casters */
+  const trayProxy = new THREE.Mesh(new THREE.BoxGeometry(S, S, T), proxyMat); trayProxy.castShadow = true; body.add(trayProxy);
+  const lidProxy = new THREE.Mesh(new THREE.BoxGeometry(S, S, .01), proxyMat); lidProxy.position.x = S / 2; lidProxy.castShadow = true; hinge.add(lidProxy);
+
+  /* sparkles: small twinkling stars on the rails */
+  const starTex = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+    g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 0); g.lineTo(34, 30); g.lineTo(64, 32); g.lineTo(34, 34); g.lineTo(32, 64); g.lineTo(30, 34); g.lineTo(0, 32); g.lineTo(30, 30); g.fill();
+    return new THREE.CanvasTexture(c);
+  })();
+  const sparkles = [[S / 2 - .1, S / 2 - .1], [-S / 2 + .1, -S / 2 + .15], [.25, -.3], [-.2, .35], [S / 2 - .045, -.2], [.1, S / 2 - .045]].map(([x, y], i) => {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
+    sp.position.set(x, y, T / 2 + .015); sp.scale.setScalar(.07); sp.userData.phase = i * 1.7; body.add(sp); return sp;
+  });
+
+  const pickables = [back, lidPanel, label, hub, trayProxy];
 
   function resize() {
     const w = innerWidth, h = innerHeight;
@@ -285,15 +330,15 @@ const Scene = (() => {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    const dist = Math.max(1.6 / t, 1.95 / (t * camera.aspect));
-    camera.position.set(0, .45, dist); camera.lookAt(0, -.1, 0);
+    const dist = Math.max(1.2 / t, 1.6 / (t * camera.aspect));
+    camera.position.set(0, .2, dist); camera.lookAt(0, -.05, 0);
     camera.setViewOffset(w, h, 0, h * .15, w, h);
     camera.updateProjectionMatrix();
   }
   addEventListener('resize', resize); resize();
 
   /* animation */
-  const st = { spin: 0, lid: 0, shift: 0, fly: 0, discVel: 0, playing: false };
+  const st = { spin: 0, lid: 0, shift: 0, fly: 0, tilt: 0, discVel: 0, playing: false };
   const tweens = [];
   const ease = {
     io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
@@ -307,11 +352,21 @@ const Scene = (() => {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   function setCover(url) {
-    new THREE.TextureLoader().load(url, (tex) => {
+    // print the cover onto a black disc, like the reference
+    const img = new Image();
+    img.onload = () => {
+      const N = 1024, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
+      g.fillStyle = '#0b0b0d'; g.fillRect(0, 0, N, N);
+      g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 * .965, 0, Math.PI * 2); g.clip();
+      const m = Math.min(img.width, img.height);
+      g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, N, N);
+      g.restore();
+      const tex = new THREE.CanvasTexture(c);
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
       if (labelMat.map) labelMat.map.dispose();
       labelMat.map = tex; labelMat.needsUpdate = true;
-    });
+    };
+    img.src = url;
   }
   function open() {
     if (reduced) { st.lid = 1; st.shift = 1; return; }
@@ -326,10 +381,12 @@ const Scene = (() => {
   async function swap(mid) {
     if (reduced) { mid(); return; }
     close();
-    await tween('fly', 3.4, .55, ease.in);
+    tween('tilt', -.25, .55, ease.in);
+    await tween('fly', 3.6, .6, ease.in);
     mid();
-    st.fly = -3.4;
-    await tween('fly', 0, .75, ease.out);
+    st.fly = -3.6; st.tilt = .3;
+    tween('tilt', 0, .8, ease.out);
+    await tween('fly', 0, .8, ease.out);
   }
   function setPlaying(on) { st.playing = on; }
 
@@ -355,16 +412,15 @@ const Scene = (() => {
     st.discVel += ((st.playing ? 4.5 : 0) - st.discVel) * Math.min(1, dt * 1.5);
     disc.rotation.z -= st.discVel * dt;
 
-    const sway = reduced ? 0 : 1;
-    root.rotation.y = -.5 + st.shift * .38 + st.spin + Math.sin(t * .5) * .08 * sway;
-    root.rotation.x = .14 + Math.sin(t * .37) * .03 * sway;
-    root.position.x = st.shift * .62;
-    root.position.y = Math.sin(t * .9) * .03 * sway + st.fly;
-    hinge.rotation.y = -st.lid * 2.75;
-    shadow.position.x = .12 + root.position.x - st.lid * .45;
-    shadow.scale.x = 1 + st.lid * .7;
-    shadow.material.opacity = Math.max(0, 1 - Math.abs(st.fly) / 1.5);
-    shadow.scale.z = 1 + (root.position.y - st.fly) * 1.5;
+    const sway = reduced ? 0 : 1 - st.shift * .6;
+    root.rotation.y = -.45 * (1 - st.shift) + st.spin + Math.sin(t * .5) * .07 * sway;
+    root.rotation.x = .06 * (1 - st.shift) + Math.sin(t * .37) * .03 * sway;
+    root.rotation.z = st.tilt;
+    root.position.x = st.shift * S / 2;
+    root.position.y = Math.sin(t * .9) * .025 * sway + st.fly;
+    hinge.rotation.y = -st.lid * Math.PI * .985;
+    hinge.position.z = T / 2 + .008 + Math.sin(st.lid * Math.PI) * .05;
+    sparkles.forEach(sp => { const k = Math.max(0, Math.sin(t * 1.3 + sp.userData.phase)); sp.material.opacity = Math.pow(k, 6); });
 
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
