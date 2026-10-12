@@ -42,15 +42,17 @@ body {
 }
 .app > * { pointer-events: auto; }
 .hint { font-size: .78rem; color: var(--muted); letter-spacing: .02em; margin: 0; text-align: center; pointer-events: none; }
+.np, .hint { transition: opacity .5s; }
+.app.is-open .np, .app.is-open .hint { opacity: 0; pointer-events: none; }
 .np { width: min(560px, 100%); display: grid; gap: 6px; text-align: center; }
 .np-cd { font-family: var(--font-mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .np-title { margin: 0; font-size: clamp(1.15rem, 2.6vw, 1.5rem); font-weight: 600; letter-spacing: -.01em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bar { display: grid; grid-template-columns: 3.2em 1fr 3.2em; align-items: center; gap: 10px; }
-.bar span { font-family: var(--font-mono); font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.bar span { font-family: var(--font-ui); font-weight: 500; font-size: .78rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .bar span:last-child { text-align: right; }
-.progress { height: 4px; border-radius: 4px; background: var(--hover); position: relative; cursor: pointer; }
+.progress { height: 7px; border-radius: 7px; background: rgba(20, 24, 34, .1); position: relative; cursor: pointer; }
 .progress::after { content: ""; position: absolute; inset: -12px 0; }
-.progress-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 4px; background: var(--fg); }
+.progress-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 7px; background: rgba(20, 24, 34, .42); }
 
 .dock {
   display: flex; align-items: center; gap: 6px; padding: 7px 10px;
@@ -79,7 +81,7 @@ body {
   border-radius: 2px; background: var(--fg);
 }
 .sep { width: 1px; height: 28px; background: var(--line); margin-inline: 4px; flex: 0 0 auto; }
-.ctl svg { width: 22px; height: 22px; fill: currentColor; }
+.ctl svg { width: 26px; height: 24px; fill: currentColor; }
 .ctl.play { width: 60px; height: 60px; background: var(--ink); color: var(--ink-fg); font-weight: 700; font-size: .95rem; letter-spacing: .04em; }
 .ctl.add { color: var(--muted); }
 .ctl:hover:not(.play) { background: var(--hover); }
@@ -95,6 +97,7 @@ body {
 .sheet p { margin: 0; color: var(--muted); font-size: .85rem; line-height: 1.45; }
 .field { display: grid; gap: 6px; font-size: .8rem; font-weight: 500; }
 .field input[type="text"] { font: inherit; font-size: .95rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
+.field textarea { font: inherit; font-size: .85rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
 .field input[type="file"] { font: inherit; font-size: .8rem; color: var(--muted); }
 .row { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .btn { font: inherit; font-size: .9rem; font-weight: 600; padding: 10px 16px; border-radius: 999px; cursor: pointer; border: 1px solid var(--line); background: transparent; color: var(--fg); }
@@ -132,11 +135,11 @@ body {
     </button>
     <span class="sep"></span>
     <button class="ctl" id="prevBtn" aria-label="Vorheriger Song">
-      <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zM9.5 12 18 6v12z"/></svg>
+      <svg viewBox="0 0 28 24"><path d="M13 5.6v12.8a.9.9 0 0 1-1.4.7L2.7 12.8a1 1 0 0 1 0-1.6l8.9-6.3a.9.9 0 0 1 1.4.7Zm13 0v12.8a.9.9 0 0 1-1.4.7l-8.9-6.3a1 1 0 0 1 0-1.6l8.9-6.3a.9.9 0 0 1 1.4.7Z"/></svg>
     </button>
     <button class="ctl play" id="playBtn" aria-label="OK – abspielen"><span id="playIcon">OK</span></button>
     <button class="ctl" id="nextBtn" aria-label="Nächster Song">
-      <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
+      <svg viewBox="0 0 28 24"><path d="M2 5.6v12.8a.9.9 0 0 0 1.4.7l8.9-6.3a1 1 0 0 0 0-1.6L3.4 4.9a.9.9 0 0 0-1.4.7Zm13 0v12.8a.9.9 0 0 0 1.4.7l8.9-6.3a1 1 0 0 0 0-1.6l-8.9-6.3a.9.9 0 0 0-1.4.7Z"/></svg>
     </button>
   </nav>
 </main>
@@ -153,6 +156,9 @@ body {
     </label>
     <label class="field">Songs (MP3, M4A …)
       <input type="file" id="cdSongs" accept="audio/*,.mp3,.m4a,.aac,.wav,.flac,.ogg" multiple>
+    </label>
+    <label class="field">… oder Playlist aus der Musik-App einfügen (Songs markieren, ⌘C, hier ⌘V)
+      <textarea id="cdList" rows="3" placeholder="Titel, Künstler, Album …"></textarea>
     </label>
     <label class="field">… oder ganzen Ordner importieren (jeder Unterordner wird eine CD)
       <input type="file" id="cdFolder" webkitdirectory multiple>
@@ -187,7 +193,7 @@ const Scene = (() => {
   } catch (e) {
     document.getElementById('fail').hidden = false;
     const noop = () => {};
-    return { setCover: noop, open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false };
+    return { setCover: noop, open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false, tapAction: () => null, setInfo: noop, setProgress: noop };
   }
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -277,16 +283,16 @@ const Scene = (() => {
   const R = .52;
   const disc = new THREE.Group(); disc.position.set(.03, 0, -T / 2 + .02); body.add(disc);
   const labelMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .3, metalness: .05, envMapIntensity: .8 });
-  const label = new THREE.Mesh(new THREE.RingGeometry(.16, R, 128, 1), labelMat); disc.add(label);
+  const label = new THREE.Mesh(new THREE.RingGeometry(.185, R, 128, 1), labelMat); disc.add(label);
   const black = new THREE.MeshStandardMaterial({ color: 0x0b0b0d, roughness: .25, metalness: .3 });
   const silver = new THREE.MeshStandardMaterial({ color: 0xdfe3ea, metalness: 1, roughness: .15 });
   const under = new THREE.Mesh(new THREE.RingGeometry(.075, R, 96, 1), silver); under.rotation.y = Math.PI; under.position.z = -.003; disc.add(under);
-  const hubBlack = new THREE.Mesh(new THREE.RingGeometry(.16, .185, 96, 1), black); hubBlack.position.z = .0004; disc.add(hubBlack);
-  const hub = new THREE.Mesh(new THREE.CircleGeometry(.16, 64),
+  const hubBlack = new THREE.Mesh(new THREE.RingGeometry(.15, .185, 96, 1), black); hubBlack.position.z = .0004; disc.add(hubBlack);
+  const hub = new THREE.Mesh(new THREE.CircleGeometry(.15, 64),
     new THREE.MeshPhysicalMaterial({ color: 0xd9dee6, roughness: .1, transparent: true, opacity: .35, clearcoat: 1, depthWrite: false }));
   hub.position.z = .0003; disc.add(hub);
   const ring = (r, w, z = .002) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, w, 6, 72), chrome); m.position.z = z; disc.add(m); };
-  ring(R, .006, 0); ring(.2, .005); ring(.155, .004); ring(.115, .006, .004); ring(.05, .008, .004);
+  ring(R, .006, 0); ring(.185, .003); ring(.115, .005, .004); ring(.05, .007, .004);
   for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + i * Math.PI / 2; const h = new THREE.Mesh(new THREE.TorusGeometry(.016, .004, 6, 24), chrome); h.position.set(Math.cos(a) * .085, Math.sin(a) * .085, .004); disc.add(h); }
   // four clips holding the disc (they belong to the tray, so they do not spin)
   [Math.PI * .3, Math.PI * .7, Math.PI * 1.3, Math.PI * 1.7].forEach(a => {
@@ -304,6 +310,73 @@ const Scene = (() => {
     const arc = new THREE.Mesh(new THREE.TorusGeometry(.04, .004, 6, 24, Math.PI), chrome);
     arc.position.set(x, sy * (S / 2 - .015), .002); arc.rotation.z = sy > 0 ? Math.PI : 0; lidGroup.add(arc);
   }));
+
+  /* booklet on the inside of the lid: cover, title, artist, live progress */
+  const BK = 1024, bkCanvas = document.createElement('canvas'); bkCanvas.width = bkCanvas.height = BK;
+  const bk = bkCanvas.getContext('2d');
+  const bkTex = new THREE.CanvasTexture(bkCanvas); bkTex.colorSpace = THREE.SRGBColorSpace; bkTex.anisotropy = 4;
+  const booklet = new THREE.Mesh(new THREE.PlaneGeometry(S - .07, S - .07),
+    new THREE.MeshBasicMaterial({ map: bkTex, toneMapped: false }));
+  booklet.position.z = -.007; booklet.rotation.y = Math.PI; lidGroup.add(booklet);
+  let coverImg = null;
+  const info = { title: '', artist: '', meta: '', cur: 0, dur: 0, playing: false };
+  const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+  const rr = (x, y, w, h, r) => { bk.beginPath(); bk.roundRect ? bk.roundRect(x, y, w, h, r) : bk.rect(x, y, w, h); };
+  const fit = (text, max) => { if (bk.measureText(text).width <= max) return text; let s = text; while (s.length > 1 && bk.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
+  const UI = '"Instrument Sans", "Helvetica Neue", Arial, sans-serif', MONO = '"JetBrains Mono", Menlo, monospace';
+  // rounded triangle pointing right (dir 1) or left (dir -1); x is the flat side
+  function drawTri(g, x, y, w, h, dir) {
+    const r = 6, a = [x, y - h / 2], b = [x + dir * w, y], c = [x, y + h / 2];
+    g.beginPath(); g.moveTo((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
+    g.arcTo(...a, ...b, r); g.arcTo(...b, ...c, r); g.arcTo(...c, ...a, r); g.closePath(); g.fill();
+  }
+  function drawSkip(g, cx, cy, dir) {
+    const w = 44, h = 52;
+    drawTri(g, cx - dir * w, cy, w + 2, h, dir); drawTri(g, cx, cy, w, h, dir);
+  }
+  function drawBooklet() {
+    const g = bk, pad = 96, inner = BK - pad * 2;
+    g.fillStyle = '#fbfbfc'; g.fillRect(0, 0, BK, BK);
+    // cover
+    const cs = 560, cx = (BK - cs) / 2, cy = 70;
+    g.save(); g.shadowColor = 'rgba(15,18,26,.22)'; g.shadowBlur = 40; g.shadowOffsetY = 16;
+    rr(cx, cy, cs, cs, 22); g.fillStyle = '#ddd'; g.fill(); g.restore();
+    if (coverImg) {
+      g.save(); rr(cx, cy, cs, cs, 22); g.clip();
+      const m = Math.min(coverImg.width, coverImg.height);
+      g.drawImage(coverImg, (coverImg.width - m) / 2, (coverImg.height - m) / 2, m, m, cx, cy, cs, cs); g.restore();
+    }
+    // text
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#8a8f99'; g.font = `500 20px ${MONO}`;
+    g.fillText(fit(info.meta.toUpperCase(), inner), pad, 690);
+    g.fillStyle = '#111318'; g.font = `600 50px ${UI}`;
+    g.fillText(fit(info.title, inner), pad, 752);
+    g.fillStyle = '#6b707b'; g.font = `400 32px ${UI}`;
+    g.fillText(fit(info.artist, inner), pad, 798);
+    // progress row: 0:54 [=====-------] -3:15
+    const py = 846, p = info.dur ? Math.min(1, info.cur / info.dur) : 0;
+    g.font = `500 24px ${UI}`; g.fillStyle = '#8a8f99'; g.textBaseline = 'middle';
+    g.textAlign = 'left'; g.fillText(fmt(info.cur), pad, py);
+    g.textAlign = 'right'; g.fillText('−' + fmt(Math.max(0, info.dur - info.cur)), pad + inner, py);
+    const bx = pad + 78, bw = inner - 156;
+    rr(bx, py - 7, bw, 14, 7); g.fillStyle = '#e3e5e9'; g.fill();
+    if (p > 0) { rr(bx, py - 7, Math.max(14, bw * p), 14, 7); g.fillStyle = '#9a9ea7'; g.fill(); }
+    // transport: rewind, play/pause, forward
+    const cyc = 930; g.fillStyle = '#111318';
+    drawSkip(g, BK / 2 - 190, cyc, -1); drawSkip(g, BK / 2 + 190, cyc, 1);
+    if (info.playing) { rr(BK / 2 - 30, cyc - 40, 22, 80, 6); g.fill(); rr(BK / 2 + 8, cyc - 40, 22, 80, 6); g.fill(); }
+    else drawTri(g, BK / 2 - 24, cyc, 64, 76, 1);
+    g.textBaseline = 'alphabetic';
+    bkTex.needsUpdate = true;
+  }
+  let lastSec = -1;
+  function setInfo(o) { Object.assign(info, o); lastSec = Math.floor(info.cur); drawBooklet(); }
+  function setProgress(cur, dur) {
+    info.dur = dur; info.cur = cur;
+    if (Math.floor(cur) !== lastSec) { lastSec = Math.floor(cur); drawBooklet(); }
+  }
+  if (document.fonts) document.fonts.ready.then(drawBooklet);
 
   /* invisible shadow casters */
   const trayProxy = new THREE.Mesh(new THREE.BoxGeometry(S, S, T), proxyMat); trayProxy.castShadow = true; body.add(trayProxy);
@@ -365,6 +438,7 @@ const Scene = (() => {
       tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
       if (labelMat.map) labelMat.map.dispose();
       labelMat.map = tex; labelMat.needsUpdate = true;
+      coverImg = img; drawBooklet();
     };
     img.src = url;
   }
@@ -388,9 +462,25 @@ const Scene = (() => {
     tween('tilt', 0, .8, ease.out);
     await tween('fly', 0, .8, ease.out);
   }
-  function setPlaying(on) { st.playing = on; }
+  function setPlaying(on) { st.playing = on; info.playing = on; drawBooklet(); }
 
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  // which booklet control was tapped (only while the lid is open)
+  function tapAction(x, y) {
+    if (st.lid < .9) return null;
+    ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const h = ray.intersectObject(booklet, false)[0];
+    if (!h || !h.uv) return null;
+    const px = h.uv.x * BK, py = (1 - h.uv.y) * BK;
+    if (py > 870 && py < 990) {
+      if (Math.abs(px - (BK / 2 - 190)) < 80) return 'prev';
+      if (Math.abs(px - BK / 2) < 70) return 'toggle';
+      if (Math.abs(px - (BK / 2 + 190)) < 80) return 'next';
+    }
+    if (Math.abs(py - 846) < 30 && px > 174 && px < BK - 174) return { seek: (px - 174) / (BK - 348) };
+    return 'none';
+  }
   function hit(x, y) {
     ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
     ray.setFromCamera(ndc, camera);
@@ -427,7 +517,7 @@ const Scene = (() => {
   }
   requestAnimationFrame(frame);
 
-  return { setCover, open, close, swap, setPlaying, hit };
+  return { setCover, open, close, swap, setPlaying, hit, tapAction, setInfo, setProgress };
 })();
 
 (() => {
@@ -511,6 +601,16 @@ const Scene = (() => {
     return c.toDataURL('image/jpeg', .9);
   }
 
+  function coverPink(name) {
+    const S = 400, c = canvas(S), g = c.getContext('2d');
+    const gr = g.createLinearGradient(0, 0, S * .4, S);
+    gr.addColorStop(0, '#ff5aa5'); gr.addColorStop(.55, '#d81b60'); gr.addColorStop(1, '#4a0716');
+    g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    const glow = g.createRadialGradient(S * .3, S * .25, 0, S * .3, S * .25, S * .7);
+    glow.addColorStop(0, 'rgba(255,255,255,.35)'); glow.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = glow; g.fillRect(0, 0, S, S);
+    return c.toDataURL('image/jpeg', .9);
+  }
   function coverFromName(name) {
     const S = 300, c = canvas(S), g = c.getContext('2d');
     let h = 0; for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 360;
@@ -650,14 +750,22 @@ const Scene = (() => {
   function duration() {
     const t = curTrack();
     if (t.synth) return t.duration;
+    if (!t.url) return t.length || 0;
     return isFinite(audio.duration) ? audio.duration : 0;
   }
 
+  const playable = (t) => !!(t.synth || t.url);
+  function firstPlayable(from, dir = 1) {
+    const tr = curCd().tracks, n = tr.length;
+    for (let k = 0; k < n; k++) { const i = ((from + dir * k) % n + n) % n; if (playable(tr[i])) return i; }
+    return -1;
+  }
   function loadTrack() {
     stopSound();
     state.synthOffset = 0;
     const t = curTrack();
-    if (!t.synth) { audio.src = t.url; audio.load(); }
+    if (t.url) { audio.src = t.url; audio.load(); }
+    else if (!t.synth) audio.removeAttribute('src');
     renderInfo();
   }
   function stopSound() {
@@ -667,15 +775,24 @@ const Scene = (() => {
   function startSound() {
     const t = curTrack();
     if (t.synth) { ensureCtx(); state.synth = new Synth(t.synth, state.synthOffset); }
-    else audio.play().catch(() => setPlaying(false));
+    else {
+      if (audio.getAttribute('src') !== t.url) { audio.src = t.url; audio.currentTime = 0; }
+      audio.play().catch(() => setPlaying(false));
+    }
   }
-  const PAUSE_SVG = '<svg viewBox="0 0 24 24"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>';
+  const PAUSE_SVG = '<svg viewBox="0 0 24 24"><rect x="5.5" y="4" width="4.5" height="16" rx="1.3"/><rect x="14" y="4" width="4.5" height="16" rx="1.3"/></svg>';
   function setPlaying(on) {
     if (on === state.playing) return;
+    if (on && !playable(curTrack())) {
+      const i = firstPlayable(state.track);
+      if (i < 0) { $('hint').textContent = 'Auf dieser CD fehlen noch die Song-Dateien. Importiere sie mit +, sie werden automatisch zugeordnet.'; return; }
+      state.track = i; loadTrack();
+    }
     state.playing = on;
     if (on) { setOpen(true); startSound(); wake(true); }
     else { stopSound(); wake(false); setOpen(false); }
     Scene.setPlaying(on);
+    $('app').classList.toggle('is-open', on);
     $('playIcon').innerHTML = on ? PAUSE_SVG : 'OK';
     $('playBtn').setAttribute('aria-label', on ? 'Pause' : 'OK – abspielen');
     $('hint').textContent = on ? 'OK drücken zum Pausieren' : 'Drücke OK – die Hülle dreht sich und öffnet';
@@ -691,7 +808,8 @@ const Scene = (() => {
     if (dir < 0 && elapsed() > 4) { seek(0); return; }
     const was = state.playing;
     if (was) stopSound();
-    state.track = (state.track + dir + n) % n;
+    const nextI = firstPlayable(state.track + dir, dir);
+    state.track = nextI < 0 ? (state.track + dir + n) % n : nextI;
     loadTrack();
     if (was) startSound();
   }
@@ -701,6 +819,11 @@ const Scene = (() => {
     else if (isFinite(audio.duration)) audio.currentTime = sec;
   }
   audio.addEventListener('ended', () => step(1));
+  audio.addEventListener('error', () => {
+    if (!state.playing || !curTrack().url) return;
+    $('hint').textContent = `„${curTrack().title}“ lässt sich nicht abspielen. Apple Lossless (ALAC) läuft auf Android nicht – bitte als FLAC importieren.`;
+    setTimeout(() => step(1), 2500);
+  });
 
   let wakeLock = null;
   async function wake(on) {
@@ -714,8 +837,10 @@ const Scene = (() => {
   const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   function renderInfo() {
     const cd = curCd(), t = curTrack();
-    $('npCd').textContent = `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}`;
+    const have = cd.tracks.filter(playable).length;
+    $('npCd').textContent = `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}` + (have < cd.tracks.length ? ` · ${have} Dateien da` : '') + (playable(t) ? '' : ' · Datei fehlt');
     $('npTitle').textContent = t.title;
+    Scene.setInfo({ title: t.title, artist: t.artist || cd.name, meta: `${cd.name} · Track ${state.track + 1} von ${cd.tracks.length}`, cur: elapsed(), dur: duration() });
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: cd.name, album: cd.name, artwork: [{ src: cd.cover, sizes: '400x400' }] }); } catch (e) {}
     }
@@ -735,7 +860,8 @@ const Scene = (() => {
   function tickUi() {
     const e = elapsed(), d = duration();
     if (curTrack().synth && state.playing && e >= d) step(1);
-    $('tCur').textContent = fmt(e); $('tDur').textContent = fmt(d);
+    $('tCur').textContent = fmt(e); $('tDur').textContent = '−' + fmt(Math.max(0, d - e));
+    Scene.setProgress(e, d);
     const p = d ? Math.min(100, e / d * 100) : 0;
     $('fill').style.width = p + '%'; $('progress').setAttribute('aria-valuenow', Math.round(p));
   }
@@ -760,7 +886,15 @@ const Scene = (() => {
   const gl = $('gl');
   gl.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY }; });
   gl.addEventListener('pointerup', (e) => {
-    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 10 && Scene.hit(e.clientX, e.clientY)) setPlaying(!state.playing);
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) < 10) {
+      const a = Scene.tapAction(e.clientX, e.clientY);
+      if (a === 'prev') step(-1);
+      else if (a === 'next') step(1);
+      else if (a === 'toggle') setPlaying(!state.playing);
+      else if (a && a.seek !== undefined) seek(a.seek * duration());
+      else if (a === 'none') { /* tap on the booklet text: ignore */ }
+      else if (Scene.hit(e.clientX, e.clientY)) setPlaying(!state.playing);
+    }
     down = null;
   });
 
@@ -815,8 +949,8 @@ const Scene = (() => {
     try { const d = await db(); await new Promise((res) => { const tx = d.transaction(STORE, 'readwrite'); tx.objectStore(STORE).delete(id); tx.oncomplete = res; tx.onerror = res; }); } catch (e) {}
   }
   function fromRecord(rec) {
-    return { id: rec.id, name: rec.name, cover: rec.cover, demo: false,
-      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', url: URL.createObjectURL(s.blob) })) };
+    return { id: rec.id, name: rec.name, cover: rec.cover, demo: false, rec,
+      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, url: s.blob ? URL.createObjectURL(s.blob) : null })) };
   }
   function squareCover(file) {
     return new Promise((res) => {
@@ -836,7 +970,8 @@ const Scene = (() => {
     $('ownBox').hidden = !own.length; list.textContent = '';
     own.forEach(cd => {
       const row = document.createElement('div'); row.className = 'own-item';
-      const name = document.createElement('span'); name.textContent = `${cd.name} · ${cd.tracks.length} Songs`;
+      const name = document.createElement('span'); const have = cd.tracks.filter(playable).length;
+      name.textContent = `${cd.name} · ${cd.tracks.length} Songs` + (have < cd.tracks.length ? ` (${have} mit Datei)` : '');
       const del = document.createElement('button'); del.type = 'button'; del.textContent = 'Entfernen';
       del.addEventListener('click', async () => {
         const idx = cds.indexOf(cd);
@@ -920,8 +1055,33 @@ const Scene = (() => {
     walk(0, buf.byteLength, '');
     return out;
   }
+  function readFlac(buf) {
+    const u = new Uint8Array(buf), v = new DataView(buf), out = {};
+    if (latin1(u.subarray(0, 4)) !== 'fLaC') return out;
+    let p = 4;
+    while (p + 4 <= u.length) {
+      const last = u[p] & 0x80, type = u[p] & 0x7f, len = (u[p + 1] << 16) | (u[p + 2] << 8) | u[p + 3], d = p + 4;
+      if (d + len > u.length) break;
+      if (type === 4) {
+        let q = d + 4 + v.getUint32(d, true); const n = v.getUint32(q, true); q += 4;
+        for (let i = 0; i < n && q + 4 <= d + len; i++) {
+          const l = v.getUint32(q, true), s = new TextDecoder().decode(u.subarray(q + 4, q + 4 + l)); q += 4 + l;
+          const k = s.indexOf('='), key = s.slice(0, k).toUpperCase(), val = s.slice(k + 1);
+          if (key === 'TITLE') out.title = val; else if (key === 'ARTIST' && !out.artist) out.artist = val; else if (key === 'ALBUM') out.album = val;
+        }
+      } else if (type === 6 && !out.picture) {
+        let q = d + 4; const ml = v.getUint32(q); const mime = latin1(u.subarray(q + 4, q + 4 + ml)); q += 4 + ml;
+        q += 4 + v.getUint32(q) + 16; const dl = v.getUint32(q);
+        out.picture = new Blob([u.slice(q + 4, q + 4 + dl)], { type: mime || 'image/jpeg' });
+      }
+      if (last) break;
+      p = d + len;
+    }
+    return out;
+  }
   async function readTags(file) {
     try {
+      if (/\.flac$/i.test(file.name)) return readFlac(await file.slice(0, Math.min(file.size, 8 * 1024 * 1024)).arrayBuffer());
       if (/\.(m4a|mp4|aac)$/i.test(file.name)) {
         // moov is usually near the start for iTunes files, else at the end
         const head = await file.slice(0, Math.min(file.size, 4 * 1024 * 1024)).arrayBuffer();
@@ -936,6 +1096,47 @@ const Scene = (() => {
     } catch (e) { return {}; }
   }
 
+  /* ---------- pasted track lists (copied from the Music app) ---------- */
+  function parseList(text) {
+    return text.split(/\r\n|\r|\n/).map(line => {
+      const f = line.split('\t').map(s => s.trim());
+      if (!f[0]) return null;
+      const di = f.findIndex((x, i) => i > 0 && /^\d{1,2}:\d{2}(:\d{2})?$/.test(x));
+      const length = di > 0 ? f[di].split(':').reduce((a, b) => a * 60 + +b, 0) : 0;
+      return { title: f[0], artist: di > 0 ? (f[di + 1] || '') : (f[1] || ''), length, blob: null };
+    }).filter(Boolean);
+  }
+  const norm = (s) => (s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s*[([](feat|ft|with)\.?[^)\]]*[)\]]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+  async function createListCd(name, songs, coverFile) {
+    const cdName = name || 'Meine Playlist';
+    const cover = (coverFile && await squareCover(coverFile)) || coverPink(cdName);
+    const rec = { id: 'own-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6), name: cdName, cover, songs };
+    await dbPut(rec); cds.push(fromRecord(rec));
+    return cds.length - 1;
+  }
+  // put imported files into list-CD slots that are still missing their file
+  async function fillMissing(files) {
+    const slots = [];
+    cds.forEach((cd, ci) => { if (cd.rec) cd.rec.songs.forEach((s, si) => { if (!s.blob) slots.push({ ci, si, t: norm(s.title), a: norm(s.artist) }); }); });
+    if (!slots.length) return files;
+    const rest = [], touched = new Set();
+    for (const f of files) {
+      const tags = f._tags || (f._tags = await readTags(f));
+      const t = norm(tags.title || f.name.replace(/\.[^.]+$/, '')), a = norm(tags.artist);
+      const cands = slots.filter(s => s.t === t);
+      const slot = cands.find(s => a && (s.a.includes(a) || a.includes(s.a))) || cands[0];
+      if (!slot) { rest.push(f); continue; }
+      slots.splice(slots.indexOf(slot), 1);
+      const cd = cds[slot.ci]; cd.rec.songs[slot.si].blob = f;
+      cd.tracks[slot.si].url = URL.createObjectURL(f);
+      touched.add(slot.ci);
+    }
+    for (const ci of touched) await dbPut(cds[ci].rec);
+    if (touched.size) { renderThumbs(); renderInfo(); }
+    return rest;
+  }
+
   /* ---------- import ---------- */
   async function createCd(name, files, coverFile) {
     const audio = files.filter(isAudio).sort((a, b) => (a.webkitRelativePath || a.name).localeCompare(b.webkitRelativePath || b.name, undefined, { numeric: true }));
@@ -943,7 +1144,7 @@ const Scene = (() => {
     const songs = [];
     let embedded = null, album = '';
     for (const f of audio) {
-      const tags = await readTags(f);
+      const tags = f._tags || await readTags(f);
       if (!embedded && tags.picture) embedded = tags.picture;
       if (!album && tags.album) album = tags.album;
       songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f });
@@ -966,8 +1167,11 @@ const Scene = (() => {
     return groups;
   }
   async function importGroups(files, fallbackName, coverFile) {
-    const groups = groupByFolder(files);
-    if (!groups.size) return 0;
+    const audioFiles = files.filter(isAudio);
+    const rest = await fillMissing(audioFiles);
+    const matched = audioFiles.length - rest.length;
+    const groups = groupByFolder(rest);
+    if (!groups.size) return matched ? -1 : 0;
     let lastIdx = null;
     for (const [folder, list] of groups) lastIdx = await createCd(groups.size === 1 && fallbackName ? fallbackName : folder, list, coverFile);
     renderThumbs();
@@ -978,7 +1182,16 @@ const Scene = (() => {
   $('sheet').addEventListener('submit', async (e) => {
     e.preventDefault();
     const files = [...$('cdSongs').files, ...$('cdFolder').files], coverFile = $('cdCover').files[0];
-    if (!files.some(isAudio)) { $('err').textContent = 'Wähle mindestens einen Song oder einen Ordner mit Songs aus.'; return; }
+    const list = parseList($('cdList').value);
+    if (list.length) {
+      $('err').textContent = 'Wird importiert …';
+      const idx = await createListCd($('cdName').value.trim(), list, coverFile);
+      if (files.some(isAudio)) await fillMissing(files.filter(isAudio));
+      renderThumbs(); switchCd(idx);
+      $('sheet').reset(); $('err').textContent = ''; $('sheetWrap').hidden = true;
+      return;
+    }
+    if (!files.some(isAudio)) { $('err').textContent = 'Wähle Songs, einen Ordner oder füge eine Playlist ein.'; return; }
     $('err').textContent = 'Wird importiert …';
     await importGroups(files, $('cdName').value.trim(), coverFile);
     $('sheet').reset(); $('err').textContent = '';
@@ -1015,6 +1228,16 @@ const Scene = (() => {
 
   /* ================= boot ================= */
   renderCase(); loadTrack(); renderThumbs(); setOpen(false);
-  dbAll().then(recs => { recs.sort((a, b) => a.id.localeCompare(b.id)).forEach(r => cds.push(fromRecord(r))); renderThumbs(); });
+  const SEED_LIST = "Te Molla (feat. Killua)\t\t3:16\tArnon\tTe Molla (feat. Killua) - Single\tDance\t0\t4\nEntusiasme (Vall\u00e9e De L\u2019armes)\t\t2:09\tHABITAT & Re-Current\tEntusiasme (Vall\u00e9e De L'armes) - Single\tDance\t0\t1\nagain\t\t2:24\tostaprod\tagain - Single\tHouse\t0\t5\nMONACO 1990\t\t2:48\tMARXO\tMONACO 1990 - Single\tDance\t0\t2\nFizzy\t\t3:17\tZARG\tFizzy - Single\tHouse\t0\t3\nTell Me\t\t3:07\tRandm\tTell Me - Single\tHouse\t0\t3\nDeja Vu (feat. Bob Taylor)\t\t4:22\tINNA & Bob Taylor\tHot\tDance\t0\t2\nHow It Feels\t\t2:19\tBarry Can't Swim\tWhen Will We Land?\tElectronic\t0\t3\nTurn Back Time\t\t2:27\tDiplo & Sonny Fodera\tTurn Back Time - Single\tDance\t0\t5\nForgotten Notes\t\t4:29\tHackman\tForgotten Notes - Single\tHouse\t0\t1\nFORMATIONS\t\t2:57\tMild Minds\tMOOD\tElectronic\t0\t4\nSoul Sacrifice\t\t3:52\tDombresky\tSoul Sacrifice - Single\tDance\t0\t1\nAquarius\t\t3:45\tOliver Heldens\tAquarius - Single\tDance\t0\t4\nMy Love (feat. Jess Glynne)\t\t4:20\tRoute 94\tMy Love (feat. Jess Glynne) - Single\tHouse\t0\t\nIn My Room (feat. SHELLS)\t\t2:26\tDombresky\tIn My Room (feat. SHELLS) - Single\tHouse\t0\t3\nWe Do What We Want (Edit)\t\t3:08\tAlan Fitzpatrick\tWe Do What We Want (Edit) - Single\tTechno\t0\t2\nParadise\t\t2:03\tdentist\tParadise - Single\tHouse\t0\t1\nUtopia\t\t4:06\tDJ NIGGA LSD\tFA3\tHouse\t0\t2\nDo To Me\t\t2:25\tTim Sanders\tDo To Me - Single\tDance\t0\t2\nTold You\t\t3:00\tJake Jeffery\tTold You - Single\tDance\t1\t2\nSand\t\t5:35\tDJ NIGGA LSD\tmy wrld\tHouse\t0\t2\nYou're in My System\t\t3:36\tTORYONTHEBEAT\tYou're in My System - Single\tHouse\t0\t3\nSeeing & Believing (Kolter Remix)\t\t3:32\tCHRIS STASSY\tAcross Ocean - EP\tHouse\t0\t1\nFlowers\t\t3:13\tLNRT\tFlowers - Single\tDance\t0\t1\nTorino\t\t3:00\tDJ CARPET & vano1337\tTorino - Single\tHouse\t0\t5\nDarling\t\t3:22\tRad&Co\tDarling - Single\tHouse\t0\t2\nCoast\t\t2:38\tLeon Flydal\tCoast - Single\tDance\t0\t5\nDub City\t\t3:49\tDELACOUR\tDub City - Single\tDance\t1\t2\nLike This\t\t3:30\tZARG\tLike This - Single\tHouse\t0\t5\nHouse Music Will Never Die\t\t3:23\tTim Sanders\tHouse Music Will Never Die - Single\tDance\t0\t2\nwants and needs\t\t4:40\tJake Antonio\twants and needs - Single\tDance\t0\t2\nRight Now\t\t2:44\tLNRT\tRight Now - Single\tDance\t0\t1\nAlways\t\t4:07\tJAYC\tAlways - Single\tDance\t0\t3\nPlayers Only\t\t2:25\tLNRT\tPlayers Only - Single\tDance\t0\t1\nSaint-Tropez\t\t2:33\tZARG & Can U\tSaint-Tropez - Single\tHouse\t0\t4\nNamerakana\t\t5:35\tLemtom\tFair Dinkum - EP\tHouse\t0\t3\nWanna See U\t\t5:22\tLemtom\tWanna See Houston - Single\tHouse\t0\t3\nToca-Toca (Radio Edit)\t\t2:45\tFly Project\tToca Toca (Remix Pack) - Single\tDance\t0\t2\nWhat Can I Do\t\t2:01\tWarband023\tWhat Can I Do - Single\tAlternative\t0\t\nBayside (Radio Edit)\t\t3:17\tObsk\u00fcr\tBayside - Single\tDance\t0\t2\nSlow Down\t\t3:06\tRetrowaves\tSlow Down - Single\tElectronic\t0\t3\nFavorite\t\t3:24\tVAKE\tFavorite - Single\tHouse\t0\t1\nMake U Whole\t\t7:43\tAndronicus\tEarly Hooj, Vol.1\tHouse\t0\t3\nLiria\t\t7:56\tAnalog Jungs\tLiria - Single\tDance\t0\t1\nCall It What You Like\t\t5:26\tRobbie Doherty\tBass Electronic - Single\tElectronic\t0\t1\nRecall (Remix)\t\t2:08\tgabriawll\tRecall (Alternate Versions) - Single\tDance\t0\t3\nBon App\u00e9tit (feat. Migos)\t\t3:48\tKaty Perry\tWitness (Deluxe)\tPop\t0\t1\nStart Movin\t\t3:36\tCHRONOSONDER\tStart Movin - Single\tHouse\t0\t2\nHOUSE OF LUX\t\t2:21\tDannyLux\tDLUX\tLatin\t0\t2\nGod Made Me Phunky (Jess Bays Remix)\t\t3:40\tMD X-Spress\tGod Made Me Phunky (Jess Bays Remix) - Single\tHouse\t0\t3\nLet's Go\t\t2:40\tJaden Bojsen & David Guetta\tLet's Go - Single\tDance\t0\t2\nBreather\t\t7:45\tCHRIS STASSY & S.A.M.\tGet Together\tDance\t0\t2\nMusic Is The Answer (Dancin' & Prancin') [feat. Celeda]\t\t9:08\tDanny Tenaglia\tTourism\tElectronic\t0\t1\nTalk To You (feat. 54 Ultra)\t\t3:11\tANOTR\tTalk To You (feat. 54 Ultra) - Single\tDance\t0\t2\nfeel the rhythm\t\t3:28\torion & kharmatic\tfeel the rhythm - Single\tElectronic\t0\t1\nMake U Whole\t\t7:43\tAndronicus\tMake You Whole\tHouse\t0\t1\nThe Cintamani Stone\t\t4:38\tDJ NIGGA LSD\tOlaf Jansen North Pole\tHouse\t0\t1\nDevotion\t\t2:16\tLance Savali\tDevotion - Single\tElectronic\t0\t3\nVision\t\t5:04\tPalace\tVision - Single\tHouse\t0\t3\nAlchemy\t\t3:54\tRad&Co\tAlchemy - Single\tHouse\t0\t4\nGood 4 U\t\t3:28\tLuuk Van Dijk & Kolter\tGood 4 U - Single\tDance\t0\t3\nWhen I Was a Child (2018 Edit)\t\t6:45\tDJ Sly\tYousel Experience # 5\tHouse\t0\t1\nBerlin\t\t3:07\tDJ CARPET\tBerlin - Single\tAmbient\t0\t4\nThis Girl (Extended Mix)\t\t4:01\tAudiogroove\tClubtraxxx Vol.17 - Session 1\tDance\t0\t2\nToo Much For Me\t\t2:34\tSELKER\tToo Much For Me - Single\tDance\t0\t2\nTricks You Play\t\t2:45\tGABESRXDA\tTricks You Play - Single\tDance\t0\t2\nCabana\t\t3:05\tRool\u00e9h\tSome Time - EP\tHouse\t0\t2\nShow Me Love\t\t4:29\tRobin S.\tShow Me Love\tPop\t0\t2\nSexy Bitch (feat. Akon)\t\t3:16\tDavid Guetta\tOne More Love\tElectronica\t0\t1\nLovelee Dae (Radio Edit)\t\t3:31\tBlaze\tLovelee Dae\tDance\t0\t1\nSuperstar\t\t2:18\tAstroHertz\tSuperstar - Single\tHouse\t0\t1\nOnly Love Can Break Your Heart (Masters at Work Mix)\t\t7:42\tSaint Etienne\tCasino Classics (Deluxe Edition)\tPop\t0\t3\nLost & Found\t\t3:03\tCH@NC3\tLost & Found - Single\tDance\t0\t4\nI want you\t\t2:26\tElj\u00e9, PXRKX & Phantom Records\tI want you - Single\tDance\t0\t\nFade (feat. KimBlee) [Grant Nelson Big Room Remix]\t\t2:56\tSolu Music\tFade (feat. KimBlee) [25 Years Edition] - EP\tHouse\t0\t1\nSun Kissed Computer\t\t6:11\tAdisyn & Wassu\tSun Kissed Computer - Single\tDance\t0\t3\nGotta Be\t\t7:22\tKellie Allen\tPIV ADE Sampler '21 Pt 4 - Single\tHouse\t0\t1\nLoos\t\t7:01\tAri Bald\tLoos - Single\tHouse\t0\t3\nGroovy Thang\t\t2:48\tDTAILR\tGroovy Thang - Single\tDance\t0\t1\nPlanet Hollywood\t\t2:58\tJakkob\tPlanet Hollywood - Single\tDance\t0\t3\nCan't Get Enough! (Radio Edit)\t\t3:27\tSoulsearcher\tCan't Get Enough! (Radio Edit) - Single\tDance\t0\t\nnight lights. (trumpet rework)\t\t3:02\tSt-Amour, Thomas Asselman & Fred Paci\tnight lights. (trumpet rework) - Single\tHouse\t0\t4\nFree\t\t4:52\tDon Carlos\tMediterraneo - EP\tHouse\t0\t4\nEdge of Desire\t\t2:15\tJonas Blue & Malive\tEdge of Desire - Single\tDance\t0\t4\nCORA\u00c7AO (feat. Jesus Fernandez) [20th Anniversary Mix]\t\t2:56\tJerry Ropero, HUGEL & Mijangos\tCORA\u00c7AO (feat. Jesus Fernandez) [20th Anniversary Mix] - Single\tAfro House\t0\t1\nGot This Feeling\t\t3:35\tPreece\tGot This Feeling - Single\tDance\t0\t3\nFree Your Mind\t\t3:22\tProspa, Cloonee & Sybil\tFree Your Mind - Single\tDance\t0\t4\nSo Sweet\t\t2:34\tCan U\tSo Sweet - Single\tHouse\t0\t2\nGotta Let You Go (feat. Dominica)\t\t2:47\tFelix Leiter & Ango Tamarin\tGotta Let You Go (feat. Dominica) - Single\tHouse\t0\t4\nJust The Way You Are\t\t2:40\tMilky & Mall Grab\tJust The Way You Are - Single\tDance\t0\t\nRitmo\t\t3:04\tRaffa Fl\tRitmo - Single\tDance\t0\t4\nAdventure of a Lifetime\t\t4:24\tColdplay\tA Head Full of Dreams\tAlternative\t0\t2\nMove Your Body\t\t3:16\tMarshall Jefferson & Solardo\tMove Your Body - Single\tDance\t0\t1\nMove Your Body\t\t3:52\tXpansions\tMove Your Body (Elevation) - EP\tDance\t0\t2\nSend Me The Addy\t\t3:12\tWoodcamp & D38\tSend Me The Addy - Single\tElectronic\t0\t1\nEatin' Good\t\t3:42\tWoodcamp\tEatin' Good - Single\tDance\t0\t2\nOut of My Life (feat. Alexandra Prince)\t\t3:14\tBen Delay\tOut of My Life (feat. Alexandra Prince) [Remixes] - EP\tDance\t0\t1\nWon't Look Back\t\t4:30\tDuke Dumont\tWon\u2019t Look Back - Single\tDance\t0\t3\nDreams\t\t3:56\tProspa\tFree Your Mind\tDance\t0\t1\nBaby\t\t3:13\tProspa & Murda Beatz\tBaby - Single\tDance\t0\t1\nHeard Word\t\t6:43\tLost & Found\tNew Beginnings - Single\tDance\t0\t1\nHouse Every Weekend\t\t4:57\tDavid Zowie\tHouse Every Weekend (Remixes) - EP\tDance\t0\t1\nSe Me Nota (Agarrame)\t\t2:56\tOmega, Chimbala & B one El Productor De Oro\tSe Me Nota (Agarrame) - Single\tLatin\t0\t2\ntu caf\u00e9 caf\u00e9\t\t4:45\tInganam\u00f3rte\ttu caf\u00e9 caf\u00e9 - Single\tElectronic\t0\t\nShow Me Love (Extended Mix)\t\t5:26\tDoctor Y\tShow Me Love (Extended Mix) - Single\tDance\t0\t\nRivet Gun\t\t2:18\tMother Soki\tRivet Gun - Single\tIndie Pop\t0\t1\nI Need You\t\t2:55\tTWOFACED & Nikita W\tI Need You - Single\tDance\t0\t\nLoca People (What the F**k!\") [Radio Edit]\t\t3:32\tSak Noel\tDo It All Night, Vol. 2\tDance\t0\t\nParadise\t\t3:37\tSade\tThe Best of Sade\tR&B/Soul\t0\t\nFeel (feat. Sena Sener) [Radio Edit]\t\t2:53\tMahmut Orhan\tFeel (feat. Sena Sener) [Radio Edit] - Single\tDance\t0\t\nPon De Replay\t\t4:18\tEmie\tPon De Replay - Single\tElectronic\t0\t1\nMidnight (Chris Stussy Remix)\t\t4:08\tSolaris Heights\tMidnight (Chris Stussy Remix) - Single\tHouse\t0\t\nStill Sincere (feat. PinkPantheress) [MK Dub]\t\t5:15\tMJ Cole\tStill Sincere (MK Dub) [feat. PinkPantheress] - Single\tDance\t0\t\nMotivation\t\t2:43\tRylo & Le Prof\tMotivation - Single\tDance\t0\t1\nDrift\t\t4:30\tBonobo\tDistance in Static\tElectronic\t0\t\nLove Reigns\t\t4:54\tMall Grab\tWhat I Breathe\tElectronic\t0\t2\n";
+  dbAll().then(async recs => {
+    recs.sort((a, b) => a.id.localeCompare(b.id)).forEach(r => cds.push(fromRecord(r)));
+    let seeded = false; try { seeded = localStorage.getItem('jewel-seeded') === '1'; } catch (e) {}
+    if (!seeded && !recs.some(r => r.id === 'own-seed')) {
+      const rec = { id: 'own-seed', name: 'Meine Playlist', cover: coverPink('Meine Playlist'), songs: parseList(SEED_LIST) };
+      await dbPut(rec); cds.push(fromRecord(rec));
+      try { localStorage.setItem('jewel-seeded', '1'); } catch (e) {}
+    }
+    renderThumbs();
+  });
 })();
 </script>
