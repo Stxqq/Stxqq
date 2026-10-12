@@ -185,13 +185,21 @@ body {
 .ly-bg { position: absolute; inset: -20%; background: #15161a center / cover no-repeat; filter: blur(70px) saturate(1.6) brightness(.55); transform: scale(1.1); transition: background-image .6s; }
 .ly-bg::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.15), rgba(0,0,0,.45)); }
 .ly-disc { position: absolute; left: 0; top: 0; width: 100px; height: 100px; border-radius: 50%; pointer-events: none; z-index: 2;
-  background: #111 center / cover no-repeat; opacity: 0; will-change: transform, opacity, filter;
-  -webkit-mask: radial-gradient(circle, transparent 0 6.5%, #000 7%); mask: radial-gradient(circle, transparent 0 6.5%, #000 7%); }
-.ly-head, .ly-viewport { transition: opacity .6s .45s, transform .8s .45s cubic-bezier(.22, 1, .36, 1); }
-.lyrics.entering .ly-head { opacity: 0; transform: scale(.92); transition-delay: 0s; transition-duration: .25s; }
+  will-change: transform; filter: drop-shadow(0 26px 40px rgba(0,0,0,.45)); }
+.ly-disc-spin, .ly-disc-sheen, .ly-disc-hub { position: absolute; inset: 0; border-radius: 50%; }
+.ly-disc-spin { background: #111 center / cover no-repeat;
+  -webkit-mask: radial-gradient(circle, transparent 0 6.6%, #000 7.1%); mask: radial-gradient(circle, transparent 0 6.6%, #000 7.1%);
+  box-shadow: inset 0 0 0 3px rgba(225,230,238,.9), inset 0 0 0 5px rgba(0,0,0,.6);
+  animation: cdSpin 2.6s linear infinite; animation-play-state: paused; }
+.ly-disc.spinning .ly-disc-spin { animation-play-state: running; }
+.ly-disc-sheen { -webkit-mask: radial-gradient(circle, transparent 0 6.6%, #000 7.1%); mask: radial-gradient(circle, transparent 0 6.6%, #000 7.1%); mix-blend-mode: screen;
+  background: conic-gradient(from 30deg, transparent 0 20deg, rgba(255,255,255,.4) 40deg, rgba(150,220,255,.22) 55deg, transparent 80deg 200deg, rgba(255,255,255,.3) 225deg, rgba(255,170,220,.18) 240deg, transparent 265deg); }
+.ly-disc-hub { inset: 33%; background: radial-gradient(circle, transparent 0 21%, rgba(255,255,255,.6) 22% 24%, rgba(20,22,28,.55) 25% 58%, rgba(255,255,255,.35) 59% 61%, rgba(20,22,28,.85) 62% 99%); }
+.ly-slot { width: 100%; aspect-ratio: 1; visibility: hidden; }
+.ly-meta, .ly-viewport { transition: opacity .6s 1.15s, transform .8s 1.15s cubic-bezier(.22, 1, .36, 1); }
+.lyrics.entering .ly-meta { opacity: 0; transform: translateY(12px); transition-delay: 0s; transition-duration: .25s; }
 .lyrics.entering .ly-viewport { opacity: 0; transition-delay: 0s; transition-duration: .25s; }
 .ly-head { position: relative; display: grid; gap: 18px; align-content: center; }
-.ly-cover { width: 100%; aspect-ratio: 1; border-radius: 14px; object-fit: cover; box-shadow: 0 24px 60px rgba(0,0,0,.45); }
 .ly-meta { display: grid; gap: 4px; min-width: 0; }
 .ly-meta strong { font-size: 1.25rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ly-meta span { color: rgba(255,255,255,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -220,7 +228,7 @@ body {
 .ly-empty { font-size: 1.4rem; font-weight: 600; color: rgba(255,255,255,.75); }
 .ly-empty small { display: block; margin-top: 8px; font-size: .95rem; font-weight: 400; color: rgba(255,255,255,.5); }
 .ctl.lyr[aria-pressed="true"] { background: var(--ink); color: var(--ink-fg); }
-@media (max-width: 720px) { .lyrics { grid-template-columns: 1fr; gap: 12px; padding-block: 16px 120px; } .ly-head { grid-template-columns: 64px 1fr; align-items: center; } .ly-cover { border-radius: 8px; } }
+@media (max-width: 720px) { .lyrics { grid-template-columns: 1fr; gap: 12px; padding-block: 16px 120px; } .ly-head { grid-template-columns: 64px 1fr; align-items: center; } }
 @media (prefers-reduced-motion: reduce) { .ly-lines, .ly-line { transition: none; } .lyrics { animation: none; } }
 .fail { position: fixed; inset: 0; display: grid; place-items: center; padding-inline: 16px; text-align: center; color: var(--muted); }
 @media (max-height: 520px) { .hint { display: none; } }
@@ -229,9 +237,9 @@ body {
 <canvas id="gl" aria-label="3D CD-Hülle. Antippen öffnet sie und spielt die CD ab."></canvas>
 <section class="lyrics" id="lyrics" hidden aria-label="Lyrics">
   <div class="ly-bg" id="lyBg"></div>
-  <div class="ly-disc" id="lyDisc"></div>
+  <div class="ly-disc" id="lyDisc"><div class="ly-disc-spin" id="lyDiscSpin"></div><i class="ly-disc-sheen"></i><i class="ly-disc-hub"></i></div>
   <header class="ly-head">
-    <img class="ly-cover" id="lyCover" alt="">
+    <div class="ly-slot" id="lySlot"></div>
     <div class="ly-meta"><strong id="lyTitle"></strong><span id="lyArtist"></span>
       <div class="ly-prog"><span id="lyCur">0:00</span><b><i id="lyFill"></i></b><span id="lyLeft">−0:00</span></div>
       <em id="lySource"></em></div>
@@ -344,7 +352,7 @@ const Scene = (() => {
   } catch (e) {
     document.getElementById('fail').hidden = false;
     const noop = () => {};
-    return { setCover: noop, open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false, tapAction: () => null, setInfo: noop, setProgress: noop, discRect: () => ({ x: innerWidth / 2, y: innerHeight / 2, r: 120 }) };
+    return { setCover: noop, open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false, tapAction: () => null, setInfo: noop, setProgress: noop, discRect: () => ({ x: innerWidth / 2, y: innerHeight / 2, r: 120 }), openQuick: async () => {}, setDiscVisible: noop };
   }
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -615,6 +623,12 @@ const Scene = (() => {
     await tween('fly', 0, .8, ease.out);
   }
   function setPlaying(on) { st.playing = on; info.playing = on; drawBooklet(); }
+  function openQuick() {
+    if (reduced) { st.lid = 1; st.shift = 1; return Promise.resolve(); }
+    tween('shift', 1, .8, ease.io);
+    return tween('lid', 1, .75, ease.io);
+  }
+  function setDiscVisible(v) { disc.visible = v; }
 
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   // which booklet control was tapped (only while the lid is open)
@@ -680,7 +694,7 @@ const Scene = (() => {
     const pc = toPx(c.clone()), pe = toPx(e.clone());
     return { x: pc.x, y: pc.y, r: Math.max(20, Math.hypot(pe.x - pc.x, pe.y - pc.y)) };
   }
-  return { setCover, open, close, swap, setPlaying, hit, tapAction, setInfo, setProgress, discRect };
+  return { setCover, open, close, swap, setPlaying, hit, tapAction, setInfo, setProgress, discRect, openQuick, setDiscVisible };
 })();
 
 (() => {
@@ -1057,7 +1071,7 @@ const Scene = (() => {
     const tr = curTrack(), cd = curCd(), key = lyricsKey();
     ly.key = key; ly.idx = -2;
     $('lyTitle').textContent = tr.title; $('lyArtist').textContent = tr.artist || cd.name;
-    $('lyCover').src = cd.cover; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
+    $('lyDiscSpin').style.backgroundImage = `url("${cd.cover}")`; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
     $('lySource').textContent = 'Lyrics werden gesucht …';
     const box = $('lyLines'); box.innerHTML = ''; box.style.transform = '';
     box.style.position = ''; box.style.paddingBlock = ''; $('lyViewport').style.overflowY = '';
@@ -1076,7 +1090,7 @@ const Scene = (() => {
         const el = document.createElement('div'); el.className = 'ly-line';
         if (l.text) el.textContent = l.text; else el.innerHTML = '<span class="ly-dots"><i></i><i></i><i></i></span>';
         el.addEventListener('click', () => seek(l.t + .01));
-        if (ly.stagger) { el.classList.add('enter'); el.style.animationDelay = (.55 + Math.min(i, 14) * .06) + 's'; }
+        if (ly.stagger) { el.classList.add('enter'); el.style.animationDelay = (1.25 + Math.min(i, 14) * .07) + 's'; }
         box.appendChild(el);
       });
       lyTick(true);
@@ -1089,6 +1103,7 @@ const Scene = (() => {
   function lyTick(force = false) {
     if (!ly.open) return;
     if (lyricsKey() !== ly.key) { loadLyrics(); return; }
+    $('lyDisc').classList.toggle('spinning', state.playing);
     const lines = ly.data && ly.data.lines;
     if (!lines) return;
     const e = elapsed() + .25;
@@ -1101,34 +1116,27 @@ const Scene = (() => {
     if (cur) $('lyLines').style.transform = `translateY(${-(cur.offsetTop - $('lyViewport').clientHeight * .36 + cur.offsetHeight / 2)}px)`;
   }
   function lyLoop() { if (!ly.open) return; lyTick(); requestAnimationFrame(lyLoop); }
-  // The disc becomes the lyrics: a copy of the spinning disc grows out of the case until it
-  // fills the screen, blurs into the colour background, and the lines rise out of its centre.
-  // Closing runs the same thing backwards into the case.
+  // Lyrics choreography: the case opens, the CD rises out of the tray toward you, flies to the
+  // left while spinning and lands as the big disc of the lyrics view; then the colour backdrop
+  // fades in and the lines rise on the right. Closing flies the CD back into the case.
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let lyAnim = null;
-  function discMorph(reverse) {
-    const d = Scene.discRect(), el = $('lyrics'), disc = $('lyDisc');
-    const far = Math.hypot(Math.max(d.x, innerWidth - d.x), Math.max(d.y, innerHeight - d.y));
-    const k = (far * 2.3) / (d.r * 2);
-    disc.style.backgroundImage = `url("${curCd().cover}")`;
-    disc.style.width = disc.style.height = d.r * 2 + 'px';
-    disc.style.left = d.x - d.r + 'px'; disc.style.top = d.y - d.r + 'px';
-    const small = `circle(${d.r}px at ${d.x}px ${d.y}px)`, big = `circle(${far + 30}px at ${d.x}px ${d.y}px)`;
-    const sharp = { transform: 'rotate(0deg) scale(1)', filter: 'blur(0px) saturate(1)', opacity: 1 };
-    const mid = { transform: `rotate(260deg) scale(${k * .45})`, filter: 'blur(12px) saturate(1.4)', opacity: 1, offset: .45 };
-    const gone = { transform: `rotate(420deg) scale(${k})`, filter: 'blur(60px) saturate(1.6)', opacity: 0 };
-    const dur = reverse ? 900 : 1300, ease = 'cubic-bezier(.65,0,.25,1)';
-    return [
-      disc.animate(reverse ? [gone, { ...mid }, sharp] : [sharp, mid, gone], { duration: dur, easing: ease, fill: 'both' }),
-      el.animate([{ clipPath: reverse ? big : small }, { clipPath: reverse ? small : big }],
-        { duration: reverse ? 800 : 1000, delay: reverse ? 180 : 0, easing: ease, fill: 'both' }),
-      $('lyBg').animate([{ opacity: reverse ? 1 : 0 }, { opacity: reverse ? 0 : 1 }],
-        { duration: reverse ? 500 : 900, delay: reverse ? 0 : 350, easing: 'ease-in-out', fill: 'both' }),
-    ];
+  function slotRect() { const r = $('lySlot').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 }; }
+  function placeDisc(r) { const d = $('lyDisc'); d.style.width = d.style.height = r.r * 2 + 'px'; d.style.left = r.x - r.r + 'px'; d.style.top = r.y - r.r + 'px'; }
+  function flight(from, to, reverse) {
+    // element sits at `to`; keyframes start at `from`
+    const k = from.r / to.r, dx = from.x - to.x, dy = from.y - to.y;
+    const start = { transform: `translate(${dx}px, ${dy}px) scale(${k})`, offset: 0 };
+    const lift = { transform: `translate(${dx}px, ${dy - from.r * .25}px) scale(${k * 1.14})`, offset: .28 };
+    const curve = { transform: `translate(${dx * .35}px, ${dy * .35 - to.r * .35}px) scale(${(k + 1) / 2 * 1.04})`, offset: .66 };
+    const end = { transform: 'none', offset: 1 };
+    const frames = reverse ? [end, { ...curve, offset: .34 }, { ...lift, offset: .72 }, start].map((f, i) => ({ ...f, offset: [0, .34, .72, 1][i] })) : [start, lift, curve, end];
+    return $('lyDisc').animate(frames, { duration: reverse ? 1000 : 1250, easing: 'cubic-bezier(.45,0,.2,1)', fill: 'both' });
   }
+  addEventListener('resize', () => { if (ly.open && !lyAnim) placeDisc(slotRect()); });
   async function setLyrics(on) {
     if (on === ly.open) return;
-    const el = $('lyrics');
+    const el = $('lyrics'), disc = $('lyDisc');
     ly.open = on;
     $('lyricsBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
     $('app').classList.toggle('ly-open', on);
@@ -1136,19 +1144,33 @@ const Scene = (() => {
     lyAnim = null;
     if (on) {
       $('lyViewport').style.overflowY = ''; $('lyLines').style.position = ''; $('lyLines').style.paddingBlock = '';
-      el.hidden = false; ly.stagger = !reduceMotion;
+      ly.stagger = !reduceMotion; ly.lidWasClosed = !state.open;
+      el.classList.add('entering'); el.hidden = false;
       loadLyrics(); requestAnimationFrame(lyLoop);
-      if (reduceMotion) return;
-      el.classList.add('entering');
-      lyAnim = discMorph(false);
-      requestAnimationFrame(() => requestAnimationFrame(() => el.classList.remove('entering')));
-      setTimeout(() => { ly.stagger = false; }, 2000);
+      $('lyBg').style.opacity = 0; disc.style.visibility = 'hidden';
+      if (!state.open) { state.open = true; await Scene.openQuick(); }
+      if (!ly.open) return;
+      const from = Scene.discRect(), to = slotRect();
+      placeDisc(to); disc.style.visibility = ''; Scene.setDiscVisible(false);
+      el.classList.remove('entering');
+      if (reduceMotion) { $('lyBg').style.opacity = ''; return; }
+      lyAnim = [flight(from, to, false),
+        $('lyBg').animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, delay: 450, easing: 'ease-in-out', fill: 'both' })];
+      setTimeout(() => { ly.stagger = false; }, 2500);
+      try { await lyAnim[0].finished; } catch (e) { return; }
+      $('lyBg').style.opacity = ''; lyAnim.forEach(a => a.commitStyles && a.cancel()); lyAnim = null;
     } else {
-      if (reduceMotion) { el.hidden = true; return; }
       el.classList.add('entering');
-      const anims = lyAnim = discMorph(true);
+      const to = slotRect(), back = Scene.discRect();
+      placeDisc(to);
+      const anims = lyAnim = reduceMotion ? [] : [flight(back, to, true),
+        $('lyBg').animate([{ opacity: 1 }, { opacity: 0 }], { duration: 700, easing: 'ease-in-out', fill: 'both' })];
       try { await Promise.all(anims.map(a => a.finished)); } catch (e) { return; }
-      if (!ly.open) { el.hidden = true; el.classList.remove('entering'); anims.forEach(a => a.cancel()); lyAnim = null; }
+      if (ly.open) return;
+      Scene.setDiscVisible(true);
+      el.hidden = true; el.classList.remove('entering'); disc.style.visibility = 'hidden';
+      anims.forEach(a => a.cancel()); lyAnim = null;
+      if (ly.lidWasClosed && !state.playing) setOpen(false);
     }
   }
   $('lyricsBtn').addEventListener('click', () => setLyrics(!ly.open));
