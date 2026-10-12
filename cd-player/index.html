@@ -851,6 +851,15 @@ const Scene = (() => {
       if (!granted) toast('Tippe hier und erlaube „Jewel CD“ den Zugriff auf Benachrichtigungen, damit die App sieht, was dein iPhone spielt.', () => { try { Bridge.openAccess(); } catch (e) {} }, true);
       else if (toastAction) $('toast').hidden = true;
     },
+    onUsb() {
+      toast('USB-Stick erkannt. Tippe hier, um Songs davon als CD zu importieren.', () => { $('err').textContent = ''; renderOwn(); $('sheetWrap').hidden = false; }, true);
+    },
+    onAutoStart(allowed) {
+      let asked = false; try { asked = localStorage.getItem('jewel-autostart-asked') === '1'; } catch (e) {}
+      if (allowed || asked || !$('toast').hidden) return;
+      try { localStorage.setItem('jewel-autostart-asked', '1'); } catch (e) {}
+      toast('Soll Jewel CD automatisch starten, wenn du einen USB-Stick einsteckst? Tippe hier und erlaube „Über anderen Apps einblenden“.', () => { try { Bridge.openAutoStart(); } catch (e) {} }, true);
+    },
     onUpdate(o) {
       const tr = LIVE.tracks[0];
       const key = (o.title || '') + '|' + (o.artist || '');

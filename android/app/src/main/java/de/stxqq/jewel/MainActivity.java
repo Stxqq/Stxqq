@@ -52,6 +52,7 @@ import java.util.concurrent.Executors;
  * back through window.AndroidBridge (play, pause, next, prev, seekTo).
  */
 public class MainActivity extends Activity {
+    static final String ACTION_USB = "de.stxqq.jewel.USB";
     private static final int FILE_REQUEST = 41;
     private static final String START_URL = "https://appassets.androidplatform.net/assets/index.html";
 
@@ -62,6 +63,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private boolean pageReady = false;
     private ValueCallback<Uri[]> fileCallback;
+    private boolean usbPending = false;
 
     private MediaSessionManager sessions;
     private MediaController controller;
@@ -123,6 +125,29 @@ public class MainActivity extends Activity {
         web.loadUrl(START_URL);
 
         sessions = (MediaSessionManager) getSystemService(MEDIA_SESSION_SERVICE);
+        usbPending = isUsbIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (isUsbIntent(intent)) { usbPending = true; announceUsb(); }
+    }
+
+    private static boolean isUsbIntent(Intent i) {
+        if (i == null || i.getAction() == null) return false;
+        return ACTION_USB.equals(i.getAction()) || "android.hardware.usb.action.USB_DEVICE_ATTACHED".equals(i.getAction());
+    }
+
+    private void announceUsb() {
+        if (!usbPending || !pageReady) return;
+        usbPending = false;
+        js("window.NativeMedia&&NativeMedia.onUsb&&NativeMedia.onUsb()");
+    }
+
+    private boolean canAutoStart() {
+        return android.os.Build.VERSION.SDK_INT < 23 || Settings.canDrawOverlays(this);
     }
 
     @Override
@@ -376,7 +401,12 @@ public class MainActivity extends Activity {
 
     private class Bridge {
         @JavascriptInterface public void ready() {
-            main.post(() -> { pageReady = true; attachSessions(); });
+            main.post(() -> {
+                pageReady = true;
+                attachSessions();
+                js("window.NativeMedia&&NativeMedia.onAutoStart&&NativeMedia.onAutoStart(" + canAutoStart() + ")");
+                announceUsb();
+            });
         }
         @JavascriptInterface public void play() {
             main.post(() -> { if (controller != null) controller.getTransportControls().play(); });
@@ -392,6 +422,15 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public void seekTo(long ms) {
             main.post(() -> { if (controller != null) controller.getTransportControls().seekTo(ms); });
+        }
+        @JavascriptInterface public void openAutoStart() {
+            main.post(() -> {
+                try {
+                    startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
+                } catch (Exception e) {
+                    startActivity(new Intent(Settings.ACTION_SETTINGS));
+                }
+            });
         }
         @JavascriptInterface public void openAccess() {
             main.post(() -> {
