@@ -166,36 +166,42 @@ body {
 .own-item button { font: inherit; font-size: .8rem; color: var(--danger); background: none; border: 0; cursor: pointer; padding: 6px; }
 .drop { position: fixed; inset: 12px; z-index: 20; border: 2px dashed var(--fg); border-radius: 22px; display: grid; place-items: center; background: rgba(245, 246, 248, .85); font-size: 1.2rem; font-weight: 600; pointer-events: none; }
 .toast {
-  /* a bubble that grows out of the top of the dock: same surface, joined by concave fillets */
-  --fillet: 20px;
+  /* outer layer only positions and casts a shadow that follows the bubble's real shape (fillets included) */
   position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
-  width: max-content; max-width: min(520px, calc(100% - 72px)); box-sizing: border-box; z-index: 7;
-  padding: 14px 24px 12px; border-radius: 24px 24px 0 0; text-align: center;
-  color: var(--fg); background: var(--surface); font-size: .95rem; font-weight: 500; line-height: 1.4;
-  box-shadow: 0 -8px 24px rgba(20,24,34,.08);
-  animation: toastIn .75s cubic-bezier(.2, .9, .25, 1) both;
+  width: max-content; max-width: min(560px, calc(100% - 32px)); z-index: 7;
+  padding: 18px 20px 0; overflow: hidden;   /* room for fillets and shadow; anything below the dock edge is cut off */
+  filter: drop-shadow(0 -5px 10px rgba(20,24,34,.07)) drop-shadow(0 -1px 2px rgba(20,24,34,.05));
 }
-.toast::before, .toast::after {
+.toast-body {
+  /* the bubble that grows out of the top of the dock: same surface, joined by concave fillets */
+  --fillet: 20px;
+  position: relative; box-sizing: border-box; padding: 14px 24px 12px; border-radius: 24px 24px 0 0; text-align: center;
+  color: var(--fg); background: var(--surface); font-size: .95rem; font-weight: 500; line-height: 1.4;
+  animation: toastIn .8s cubic-bezier(.2, .9, .25, 1) both;
+}
+.toast-body::before, .toast-body::after {
   content: ""; position: absolute; bottom: 0; width: var(--fillet); height: var(--fillet); pointer-events: none;
 }
-.toast::before { left: calc(var(--fillet) * -1); background: radial-gradient(circle at 0 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
-.toast::after { right: calc(var(--fillet) * -1); background: radial-gradient(circle at 100% 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
-.toast.leaving { animation: toastOut .5s cubic-bezier(.55, 0, .75, .2) .12s both; }
-/* revealed, never stretched: the clip grows from a small drop at the dock's centre (fillets included) */
+.toast-body::before { left: calc(var(--fillet) * -1); background: radial-gradient(circle at 0 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
+.toast-body::after { right: calc(var(--fillet) * -1); background: radial-gradient(circle at 100% 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
+/* revealed, never stretched: the clip grows from a small drop at the dock's centre */
 @keyframes toastIn {
   0% { clip-path: inset(100% 46% 0 46% round 40px 40px 0 0); }
   55% { clip-path: inset(-4px -20px 0 -20px round 28px 28px 0 0); }
   100% { clip-path: inset(0 -20px 0 -20px round 24px 24px 0 0); }
 }
+/* leaving: a small lift, then it slides down and disappears at the dock's top edge, rounded top intact */
+.toast.leaving .toast-body { animation: toastOut .55s cubic-bezier(.5, 0, .25, 1) .08s both; clip-path: inset(0 -20px 0 -20px round 24px 24px 0 0); }
 @keyframes toastOut {
-  0% { clip-path: inset(0 -20px 0 -20px round 24px 24px 0 0); }
-  100% { clip-path: inset(100% 46% 0 46% round 40px 40px 0 0); }
+  0% { transform: translateY(0); }
+  22% { transform: translateY(-5px); }
+  100% { transform: translateY(calc(100% + 8px)); }
 }
 .toast-text { display: block; animation: toastText .5s cubic-bezier(.22, 1, .36, 1) .22s both; }
-.toast.leaving .toast-text { animation: toastTextOut .18s ease-in both; }
+.toast.leaving .toast-text { animation: toastTextOut .2s ease-in both; }
 @keyframes toastText { from { opacity: 0; transform: translateY(10px); filter: blur(5px); } }
-@keyframes toastTextOut { to { opacity: 0; transform: translateY(6px); filter: blur(4px); } }
-@media (prefers-reduced-motion: reduce) { .toast, .toast.leaving, .toast-text, .toast.leaving .toast-text { animation: none; } }
+@keyframes toastTextOut { to { opacity: 0; transform: translateY(8px) scale(.97); filter: blur(4px); } }
+@media (prefers-reduced-motion: reduce) { .toast-body, .toast.leaving .toast-body, .toast-text, .toast.leaving .toast-text { animation: none; } }
 .ctl.add.pulse { color: var(--ink-fg); background: var(--ink); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.12); } }
 .lyrics {
@@ -1030,15 +1036,18 @@ const Scene = (() => {
   function hideToast() {
     const el = $('toast'); if (el.hidden || el.classList.contains('leaving')) return;
     el.classList.add('leaving'); clearTimeout(toastLeaveT);
-    toastLeaveT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 650);
+    toastLeaveT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 680);
   }
   function toast(msg, action = null, sticky = false) {
     const el = $('toast'); clearTimeout(toastLeaveT); el.classList.remove('leaving');
-    el.textContent = ''; const span = document.createElement('span'); span.className = 'toast-text'; span.textContent = msg; el.appendChild(span);
+    const wasOpen = !el.hidden && el.querySelector('.toast-body');
+    let body = el.querySelector('.toast-body');
+    if (!wasOpen) { el.textContent = ''; body = document.createElement('div'); body.className = 'toast-body'; el.appendChild(body); }
+    body.textContent = ''; const span = document.createElement('span'); span.className = 'toast-text'; span.textContent = msg; body.appendChild(span);
     const dock = document.querySelector('.dock').getBoundingClientRect();
     el.style.bottom = (innerHeight - dock.top - 1) + 'px';
-    el.style.maxWidth = Math.min(520, dock.width - 72) + 'px';
-    if (el.hidden) el.hidden = false; else { span.style.animationDelay = '0s'; }   // already open: just swap the text
+    el.style.maxWidth = Math.min(560, dock.width - 32) + 'px';
+    if (el.hidden) el.hidden = false; else if (wasOpen) span.style.animationDelay = '0s';   // already open: just swap the text
     toastAction = action; el.style.cursor = action ? 'pointer' : '';
     clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(hideToast, 4500);
   }
@@ -1405,7 +1414,37 @@ const Scene = (() => {
       box.appendChild(b);
     });
   }
+  /* remember what was played last: CD, song and position */
+  const LAST_KEY = 'jewel-last';
+  let lastSaved = '';
+  function saveLast() {
+    const cd = curCd(), t = curTrack();
+    if (!cd || !t || t.live || restoring) return;
+    const v = JSON.stringify({ cd: cd.id || cd.name, track: state.track, pos: Math.floor(elapsed()) });
+    if (v === lastSaved) return;
+    lastSaved = v; try { localStorage.setItem(LAST_KEY, v); } catch (e) {}
+  }
+  let restoring = true;
+  function restoreLast() {
+    let v = null; try { v = JSON.parse(localStorage.getItem(LAST_KEY) || 'null'); } catch (e) {}
+    restoring = false;
+    if (!v || state.playing || switching) return;
+    const i = cds.findIndex(c => (c.id || c.name) === v.cd);
+    if (i < 0 || !cds[i].tracks[v.track]) return;
+    state.cd = i; state.track = v.track;
+    renderCase(); loadTrack(); renderThumbs();
+    if (v.pos > 2) {
+      const t = curTrack();
+      if (t.synth) state.synthOffset = v.pos;
+      else if (t.url) audio.addEventListener('loadedmetadata', () => { if (curTrack() === t && audio.currentTime < 1) audio.currentTime = Math.min(v.pos, audio.duration - 1); }, { once: true });
+    }
+    lastSaved = JSON.stringify(v);
+  }
+  addEventListener('pagehide', saveLast);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) saveLast(); });
+
   function tickUi() {
+    saveLast();
     if (isLive() && !switching && L.playing !== state.playing) setPlaying(L.playing, true);   // catch up if an update arrived mid-animation
     const e = elapsed(), d = duration();
     if (curTrack().synth && state.playing && e >= d) step(1);
@@ -1911,6 +1950,7 @@ const Scene = (() => {
       try { localStorage.setItem('jewel-seeded', '1'); } catch (e) {}
     }
     renderThumbs();
-  });
+    restoreLast();
+  }, () => restoreLast());
 })();
 </script>
