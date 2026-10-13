@@ -228,6 +228,13 @@ body {
 @keyframes lyDot { 50% { opacity: 1; transform: scale(1.35); } }
 .ly-empty { font-size: 1.4rem; font-weight: 600; color: rgba(255,255,255,.75); }
 .ly-empty small { display: block; margin-top: 8px; font-size: .95rem; font-weight: 400; color: rgba(255,255,255,.5); }
+.ly-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.ly-actions a, .ly-actions button { font: inherit; font-size: .95rem; font-weight: 600; padding: 10px 18px; border-radius: 999px; cursor: pointer; text-decoration: none;
+  border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: #fff; }
+.ly-actions .primary { background: #fff; color: #111; border-color: #fff; }
+.ly-edit { display: grid; gap: 10px; margin-top: 16px; }
+.ly-edit textarea { font: inherit; font-size: .95rem; min-height: 26vh; padding: 12px 14px; border-radius: 14px; resize: vertical;
+  border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.35); color: #fff; user-select: text; }
 .ctl.lyr[aria-pressed="true"] { background: var(--ink); color: var(--ink-fg); }
 @media (max-width: 720px) { .lyrics { grid-template-columns: 1fr; gap: 12px; padding-block: 16px 120px; } .ly-head { grid-template-columns: 64px 1fr; align-items: center; } }
 @media (prefers-reduced-motion: reduce) { .ly-lines, .ly-line { transition: none; } .lyrics { animation: none; } }
@@ -551,7 +558,7 @@ const Scene = (() => {
     g.fillStyle = '#fff'; g.beginPath(); g.moveTo(32, 0); g.lineTo(34, 30); g.lineTo(64, 32); g.lineTo(34, 34); g.lineTo(32, 64); g.lineTo(30, 34); g.lineTo(0, 32); g.lineTo(30, 30); g.fill();
     return new THREE.CanvasTexture(c);
   })();
-  const sparkles = [[S / 2 - .1, S / 2 - .1], [-S / 2 + .1, -S / 2 + .15], [.25, -.3], [-.2, .35], [S / 2 - .045, -.2], [.1, S / 2 - .045]].map(([x, y], i) => {
+  const sparkles = [].map(([x, y], i) => {   // no sparkles (removed on request)
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }));
     sp.position.set(x, y, T / 2 + .015); sp.scale.setScalar(.07); sp.userData.phase = i * 1.7; body.add(sp); return sp;
   });
@@ -769,20 +776,6 @@ const Scene = (() => {
     return c.toDataURL('image/jpeg', .9);
   }
 
-  function coverChrome() {
-    const S = 400, c = canvas(S), g = c.getContext('2d'), m = S / 2;
-    if (g.createConicGradient) {
-      const cg = g.createConicGradient(.4, m, m);
-      [['#d9dde3',0],['#8d939c',.12],['#f4f6f8',.22],['#c8b6d8',.3],['#9aa1ab',.42],['#eef1f4',.55],['#a5d6dc',.62],['#7f858e',.75],['#f2f3f5',.88],['#d9dde3',1]]
-        .forEach(([col, p]) => cg.addColorStop(p, col));
-      g.fillStyle = cg;
-    } else g.fillStyle = '#c9cdd3';
-    g.fillRect(0, 0, S, S);
-    g.strokeStyle = 'rgba(0,0,0,.05)';
-    for (let r = 20; r < m; r += 3) { g.beginPath(); g.arc(m, m, r, 0, 7); g.stroke(); }
-    return c.toDataURL('image/jpeg', .9);
-  }
-
   function coverNight() {
     const S = 400, c = canvas(S), g = c.getContext('2d'), m = S / 2;
     const bg = g.createLinearGradient(0, 0, 0, S);
@@ -824,10 +817,6 @@ const Scene = (() => {
       style: { bpm: 76, key: 53, mode: 'major', prog: [1, 4, 0, 5], seventh: true, pad: 'triangle', cutoff: 1500, arp: 'triangle', swing: .2,
                kick: [0, 7, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bass: [0, 7, 10] },
       tracks: ['Rosenrot', 'Samstagmorgen', 'Kaffee und Regen'] },
-    { id: 'chrome', name: 'Chrom', cover: coverChrome(),
-      style: { bpm: 122, key: 48, mode: 'minor', prog: [0, 0, 5, 6], pad: 'square', cutoff: 2200, arp: 'sawtooth',
-               kick: [0, 4, 8, 12], snare: [4, 12], hat: [2, 6, 10, 14], bass: [2, 6, 10, 14] },
-      tracks: ['Chromglanz', 'Tiefgarage', 'Spiegelbild'] },
     { id: 'night', name: 'Heimweg', cover: coverNight(),
       style: { bpm: 62, key: 50, mode: 'major', prog: [0, 4, 5, 3], seventh: true, pad: 'sine', cutoff: 2400, arp: 'sine',
                kick: [], snare: [], hat: [], bass: [0] },
@@ -1121,7 +1110,26 @@ const Scene = (() => {
     const empty = (h, s) => { box.innerHTML = `<div class="ly-empty">${h}<small>${s}</small></div>`; box.style.transform = 'translateY(0)'; };
     $('lySource').textContent = data.source ? 'Quelle: ' + data.source : '';
     if (data.instrumental) return empty('Instrumental', 'Dieser Song hat keinen Text.');
-    if (data.missing) return empty('Keine Lyrics gefunden', Bridge ? 'Leg eine .lrc-Datei mit gleichem Namen zum Song, dann erscheinen sie hier.' : 'Online-Lyrics gibt es in der Android-App. Eigene Lyrics: .lrc-Datei mit gleichem Namen zum Song legen.');
+    if (data.missing) {
+      empty('Keine Lyrics gefunden', Bridge ? 'Du kannst sie selbst einfügen. Mit Zeitstempeln wie [01:23.45] laufen sie Zeile für Zeile mit.'
+        : 'Die Online-Suche ist in dieser Vorschau gesperrt, in der Android-App geht sie. Hier kannst du die Lyrics selbst einfügen. Mit Zeitstempeln wie [01:23.45] laufen sie Zeile für Zeile mit.');
+      const wrap = box.firstElementChild, act = document.createElement('div'); act.className = 'ly-actions';
+      const find = document.createElement('a'); find.textContent = 'Auf LRCLIB suchen'; find.target = '_blank'; find.rel = 'noopener';
+      find.href = 'https://lrclib.net/search/' + encodeURIComponent(`${tr.artist || ''} ${tr.title}`.trim());
+      const paste = document.createElement('button'); paste.type = 'button'; paste.className = 'primary'; paste.textContent = 'Lyrics einfügen';
+      paste.addEventListener('click', () => {
+        act.remove();
+        const ed = document.createElement('div'); ed.className = 'ly-edit';
+        const ta = document.createElement('textarea'); ta.placeholder = '[00:12.30] Erste Zeile …\n[00:16.80] Zweite Zeile …\n\noder einfach den Text ohne Zeiten';
+        const save = document.createElement('button'); save.type = 'button'; save.textContent = 'Speichern';
+        const row = document.createElement('div'); row.className = 'ly-actions'; row.append(save);
+        save.classList.add('primary');
+        save.addEventListener('click', () => saveLyrics(tr, cd, ta.value));
+        ed.append(ta, row); wrap.appendChild(ed); ta.focus();
+      });
+      act.append(paste, find); wrap.appendChild(act);
+      return;
+    }
     if (data.lines) {
       const lines = data.lines[0].t > 4 ? [{ t: 0, text: '' }, ...data.lines] : data.lines;
       ly.data.lines = lines;
@@ -1138,6 +1146,13 @@ const Scene = (() => {
       data.plain.split(/\r\n|\r|\n/).forEach(s => { const el = document.createElement('div'); el.className = 'ly-line'; el.textContent = s || '\u00a0'; box.appendChild(el); });
       $('lyViewport').style.overflowY = 'auto'; box.style.position = 'relative'; box.style.paddingBlock = '8vh 30vh';
     }
+  }
+  async function saveLyrics(tr, cd, text) {
+    text = (text || '').trim(); if (!text) return;
+    tr.lyricsText = text;
+    if (cd.rec) { const i = cd.tracks.indexOf(tr); if (i >= 0) { cd.rec.songs[i].lyrics = text; await dbPut(cd.rec); } }
+    lyCache.delete((cd.id || cd.name) + '|' + tr.title + '|' + (tr.artist || ''));
+    ly.stagger = true; await loadLyrics(); setTimeout(() => { ly.stagger = false; }, 1500);
   }
   function lyTick(force = false) {
     if (!ly.open) return;
