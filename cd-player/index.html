@@ -107,26 +107,21 @@ body {
 .wiz-x { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); left: 16px; width: 48px; height: 48px; border-radius: 50%; border: 0; background: var(--hover); color: var(--fg); display: grid; place-items: center; cursor: pointer; }
 .wiz-x svg { width: 22px; height: 22px; fill: currentColor; }
 .wiz-stage { position: relative; display: grid; place-items: center; height: min(70vh, 460px); perspective: 1100px; }
-.cd3d { --cover: none; --tilt: 58deg; --lift: 0px; --size: min(34vw, 46vh, 320px);
+.cd3d { --cover: none; --size: min(32vw, 44vh, 300px);
   position: relative; width: var(--size); height: var(--size); transform-style: preserve-3d;
-  transform: translateY(var(--lift)) rotateX(var(--tilt)) rotateZ(-14deg); transition: transform 1s cubic-bezier(.22, 1, .36, 1); animation: cdFloat 4s ease-in-out infinite; }
-.cd3d[data-step="2"] { --tilt: 18deg; --lift: -10px; }
-.cd3d[data-step="3"] { --tilt: 64deg; }
-.cd3d[data-step="4"] { --tilt: 0deg; --lift: -14px; }
-@keyframes cdFloat { 50% { translate: 0 -10px; } }
+  transform: rotateX(16deg) rotateY(-14deg); }
 .cd3d-disc, .cd3d-sheen, .cd3d-hub { position: absolute; inset: 0; border-radius: 50%; }
 .cd3d-disc { background: #111 var(--cover) center / cover no-repeat;
   -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.4%); mask: radial-gradient(circle, transparent 0 7%, #000 7.4%);
-  box-shadow: 0 0 0 3px #d9dde3 inset, 0 0 0 1.5px rgba(20,24,34,.25); animation: cdSpin 7s linear infinite; }
-.cd3d[data-step="4"] .cd3d-disc { animation-duration: .7s; }
+  box-shadow: 0 0 0 3px #d9dde3 inset, 0 0 0 1.5px rgba(20,24,34,.25); }
+.cd3d[data-step="4"] .cd3d-disc { animation: cdSpin .7s linear infinite; }
 @keyframes cdSpin { to { transform: rotate(360deg); } }
 .cd3d-sheen { pointer-events: none; mix-blend-mode: screen;
   -webkit-mask: radial-gradient(circle, transparent 0 7%, #000 7.4%); mask: radial-gradient(circle, transparent 0 7%, #000 7.4%);
   background: conic-gradient(from 20deg, transparent 0 20deg, rgba(255,255,255,.45) 40deg, rgba(150,220,255,.25) 55deg, transparent 80deg 200deg, rgba(255,255,255,.35) 225deg, rgba(255,170,220,.2) 240deg, transparent 265deg); }
 .cd3d-hub { inset: 34%; background: radial-gradient(circle, transparent 0 20%, rgba(20,24,34,.25) 21% 23%, rgba(240,242,246,.7) 24% 60%, rgba(20,24,34,.2) 61% 63%, rgba(240,242,246,.35) 64% 97%, rgba(20,24,34,.25) 98%); }
-.cd3d-shadow { position: absolute; left: 50%; top: 66%; width: min(30vw, 280px); height: 46px; margin-left: min(-15vw, -140px); border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(20,24,34,.28), transparent 70%); filter: blur(6px); animation: shFloat 4s ease-in-out infinite; }
-@keyframes shFloat { 50% { transform: scale(.9); opacity: .7; } }
+.cd3d-shadow { position: absolute; left: 50%; top: calc(50% + min(16vw, 22vh, 150px) + 8px); width: min(28vw, 260px); height: 30px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(20,24,34,.22), transparent 70%); filter: blur(6px); }
 .wiz-cdname { position: absolute; bottom: 0; left: 0; right: 0; text-align: center; font-family: var(--font-mono); font-size: .72rem; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
 .wiz-panel { display: grid; gap: 14px; max-width: 460px; min-width: 0; }
 .wiz-dots { display: flex; gap: 6px; }
@@ -135,7 +130,7 @@ body {
 .wiz-kicker { margin: 0; font-family: var(--font-mono); font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .wiz-step { display: grid; gap: 14px; animation: stepIn .55s cubic-bezier(.22, 1, .36, 1); }
 @keyframes stepIn { from { opacity: 0; transform: translateX(24px); } }
-.wiz-step h2 { margin: 0; font-size: clamp(1.6rem, 3.2vw, 2.4rem); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.wiz-step h2 { margin: 0; font-size: clamp(1.4rem, 2.6vw, 2.1rem); font-weight: 700; letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
 .wiz-step p { margin: 0; color: var(--muted); line-height: 1.5; }
 .wiz-step input[type="text"], .paste textarea { font: inherit; font-size: 1.15rem; padding: 14px 16px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg); width: 100%; box-sizing: border-box; }
 .paste textarea { font-size: .9rem; margin-top: 10px; resize: vertical; }
@@ -152,7 +147,7 @@ body {
 .wiz-nav { display: flex; gap: 10px; }
 .wiz-nav .btn { min-height: 52px; padding-inline: 26px; font-size: 1rem; }
 @media (max-width: 720px) { .wiz-in { grid-template-columns: 1fr; align-content: center; gap: 12px; } .wiz-stage { height: 34vh; } .cd3d { --size: min(46vw, 30vh); } }
-@media (prefers-reduced-motion: reduce) { .wiz { transition: none; } .cd3d, .cd3d-disc, .cd3d-shadow { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .wiz { transition: none; } .cd3d-disc { animation: none !important; } }
 .field { display: grid; gap: 6px; font-size: .8rem; font-weight: 500; }
 .field input[type="text"] { font: inherit; font-size: .95rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); }
 .field textarea { font: inherit; font-size: .85rem; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); resize: vertical; }
@@ -1412,6 +1407,9 @@ const Scene = (() => {
     $('cd3dDisc').style.setProperty('--cover', `url("${wiz.cover || coverFromName(name)}")`);
   }
   function showStep(n) {
+    if (n > wiz.step && n < 4 && !reduceMotion) {
+      $('cd3dDisc').animate([{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], { duration: 1100, easing: 'cubic-bezier(.3,0,.15,1)' });
+    }
     wiz.step = n;
     document.querySelectorAll('.wiz-step').forEach(s => { s.hidden = +s.dataset.step !== n; });
     $('cd3d').dataset.step = n;
@@ -1695,6 +1693,7 @@ const Scene = (() => {
       }
     } finally { clearInterval(tick); }
     $('burnFill').style.width = '100%'; $('burnTitle').textContent = 'Fertig!';
+    $('cd3d').dataset.step = 'done';
     await new Promise(r => setTimeout(r, 900));
     wiz.busy = false; wiz.cover = null;
     closeWizard();
