@@ -112,6 +112,8 @@ public class MainActivity extends Activity {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
                 Intent i = params.createIntent();
+                // allow every file type so .lrc lyrics next to the songs (e.g. on a USB stick) can be picked too
+                i.setType("*/*");
                 if (params.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) i.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
                 try {
                     startActivityForResult(i, FILE_REQUEST);

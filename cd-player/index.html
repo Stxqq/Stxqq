@@ -166,11 +166,31 @@ body {
 .own-item button { font: inherit; font-size: .8rem; color: var(--danger); background: none; border: 0; cursor: pointer; padding: 6px; }
 .drop { position: fixed; inset: 12px; z-index: 20; border: 2px dashed var(--fg); border-radius: 22px; display: grid; place-items: center; background: rgba(245, 246, 248, .85); font-size: 1.2rem; font-weight: 600; pointer-events: none; }
 .toast {
-  position: fixed; left: 50%; top: calc(16px + env(safe-area-inset-top, 0px)); transform: translateX(-50%);
-  width: min(520px, calc(100% - 32px)); box-sizing: border-box; z-index: 15;
-  background: var(--ink); color: var(--ink-fg); border-radius: 14px; padding: 14px 18px;
-  font-size: .95rem; line-height: 1.4; box-shadow: 0 12px 30px rgba(20, 24, 34, .25);
+  /* liquid glass, rising out of the dock */
+  position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
+  width: max-content; max-width: min(520px, calc(100% - 32px)); box-sizing: border-box; z-index: 15;
+  padding: 13px 22px; border-radius: 24px; text-align: center;
+  color: #15171c; font-size: .95rem; font-weight: 500; line-height: 1.4;
+  background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.42));
+  backdrop-filter: blur(22px) saturate(1.8); -webkit-backdrop-filter: blur(22px) saturate(1.8);
+  border: 1px solid rgba(255,255,255,.75);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -10px 20px rgba(255,255,255,.18), 0 14px 34px rgba(20,24,34,.18), 0 2px 6px rgba(20,24,34,.08);
+  transform-origin: 50% 140%;
+  animation: toastIn .75s cubic-bezier(.2, 1.25, .3, 1) both;
 }
+.toast.leaving { animation: toastOut .42s cubic-bezier(.6, 0, .8, .3) both; }
+@keyframes toastIn {
+  0% { transform: translate(-50%, 70px) scale(.35, .2); border-radius: 999px; opacity: 0; filter: blur(8px); }
+  45% { transform: translate(-50%, -8px) scale(.96, 1.08); border-radius: 30px; opacity: 1; filter: blur(0); }
+  70% { transform: translate(-50%, 3px) scale(1.03, .96); }
+  100% { transform: translate(-50%, 0) scale(1); }
+}
+@keyframes toastOut {
+  0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  35% { transform: translate(-50%, -4px) scale(.97, 1.04); }
+  100% { transform: translate(-50%, 70px) scale(.35, .2); border-radius: 999px; opacity: 0; filter: blur(8px); }
+}
+@media (prefers-reduced-motion: reduce) { .toast, .toast.leaving { animation: none; } }
 .ctl.add.pulse { color: var(--ink-fg); background: var(--ink); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.12); } }
 .lyrics {
@@ -744,54 +764,6 @@ const Scene = (() => {
   /* ================= covers ================= */
   function canvas(size) { const c = document.createElement('canvas'); c.width = c.height = size; return c; }
 
-  function coverFluid() {
-    const S = 300, c = canvas(S), g = c.getContext('2d'), img = g.createImageData(S, S);
-    const stops = [[10,14,52],[32,64,214],[246,240,230],[255,128,30],[214,30,44],[18,8,12],[10,14,52]];
-    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
-      let u = (x / S - .5) * 3.2, v = (y / S - .5) * 3.2;
-      for (let k = 0; k < 5; k++) { u += .55 * Math.sin(v * 1.6 + k * 1.3); v += .55 * Math.cos(u * 1.4 - k * .9); }
-      let t = (Math.sin(u * 1.3 + v * .7) * .5 + .5) * (stops.length - 1);
-      const i = Math.min(stops.length - 2, Math.floor(t)), f = t - i, a = stops[i], b = stops[i + 1];
-      const hl = Math.pow(Math.max(0, Math.sin(u * 2.4 - v * 1.7)), 24) * 140;
-      const o = (y * S + x) * 4;
-      img.data[o] = Math.min(255, a[0] + (b[0] - a[0]) * f + hl);
-      img.data[o + 1] = Math.min(255, a[1] + (b[1] - a[1]) * f + hl);
-      img.data[o + 2] = Math.min(255, a[2] + (b[2] - a[2]) * f + hl);
-      img.data[o + 3] = 255;
-    }
-    g.putImageData(img, 0, 0);
-    return c.toDataURL('image/jpeg', .9);
-  }
-
-  function coverRose() {
-    const S = 400, c = canvas(S), g = c.getContext('2d'), m = S / 2;
-    const bg = g.createRadialGradient(m, m, 0, m, m, m);
-    bg.addColorStop(0, '#1c0507'); bg.addColorStop(1, '#050102');
-    g.fillStyle = bg; g.fillRect(0, 0, S, S);
-    const layers = [[.46, 7, 0], [.38, 6, .4], [.3, 6, .9], [.23, 5, .2], [.16, 5, .7], [.1, 4, .1], [.05, 3, .5]];
-    layers.forEach(([rr, n, off], li) => {
-      const r = rr * S;
-      for (let k = 0; k < n; k++) {
-        const a = (k / n) * Math.PI * 2 + off;
-        g.save(); g.translate(m, m); g.rotate(a);
-        const px = r * .42, rx = r * .62, ry = r * .5;
-        const grad = g.createRadialGradient(px, -ry * .2, 0, px, 0, rx);
-        const dark = li / layers.length;
-        grad.addColorStop(0, `hsl(354 85% ${52 - dark * 18}%)`);
-        grad.addColorStop(.7, `hsl(352 80% ${36 - dark * 14}%)`);
-        grad.addColorStop(1, `hsl(350 75% ${16 - dark * 6}%)`);
-        g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = 18;
-        g.fillStyle = grad;
-        g.beginPath(); g.ellipse(px, 0, rx, ry, 0, 0, Math.PI * 2); g.fill();
-        g.shadowBlur = 0;
-        g.strokeStyle = 'rgba(255,150,160,.35)'; g.lineWidth = 1.5;
-        g.beginPath(); g.ellipse(px, 0, rx, ry, 0, -1.2, 1.2); g.stroke();
-        g.restore();
-      }
-    });
-    return c.toDataURL('image/jpeg', .9);
-  }
-
   function coverNight() {
     const S = 400, c = canvas(S), g = c.getContext('2d'), m = S / 2;
     const bg = g.createLinearGradient(0, 0, 0, S);
@@ -825,14 +797,6 @@ const Scene = (() => {
 
   /* ================= demo CDs ================= */
   const DEMO = [
-    { id: 'fluid', name: 'Fluid', cover: coverFluid(),
-      style: { bpm: 100, key: 57, mode: 'minor', prog: [0, 5, 3, 4], pad: 'sawtooth', cutoff: 2600, arp: 'square',
-               kick: [0, 8], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bass: [0, 2, 4, 6, 8, 10, 12, 14] },
-      tracks: ['Nachtfahrt', 'Neonband', 'Autobahn, 3 Uhr'] },
-    { id: 'rose', name: 'Rose', cover: coverRose(),
-      style: { bpm: 76, key: 53, mode: 'major', prog: [1, 4, 0, 5], seventh: true, pad: 'triangle', cutoff: 1500, arp: 'triangle', swing: .2,
-               kick: [0, 7, 10], snare: [4, 12], hat: [0, 2, 4, 6, 8, 10, 12, 14], bass: [0, 7, 10] },
-      tracks: ['Rosenrot', 'Samstagmorgen', 'Kaffee und Regen'] },
     { id: 'night', name: 'Heimweg', cover: coverNight(),
       style: { bpm: 62, key: 50, mode: 'major', prog: [0, 4, 5, 3], seventh: true, pad: 'sine', cutoff: 2400, arp: 'sine',
                kick: [], snare: [], hat: [], bass: [0] },
@@ -1057,12 +1021,20 @@ const Scene = (() => {
   }
   let toastTimer = 0;
   let toastAction = null;
-  function toast(msg, action = null, sticky = false) {
-    const el = $('toast'); el.textContent = msg; el.hidden = false;
-    toastAction = action; el.style.cursor = action ? 'pointer' : '';
-    clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(() => { el.hidden = true; }, 6000);
+  let toastLeaveT = 0;
+  function hideToast() {
+    const el = $('toast'); if (el.hidden || el.classList.contains('leaving')) return;
+    el.classList.add('leaving'); clearTimeout(toastLeaveT);
+    toastLeaveT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 420);
   }
-  $('toast').addEventListener('click', () => { if (toastAction) toastAction(); $('toast').hidden = true; });
+  function toast(msg, action = null, sticky = false) {
+    const el = $('toast'); clearTimeout(toastLeaveT); el.classList.remove('leaving');
+    el.textContent = msg;
+    if (el.hidden) el.hidden = false; else { el.style.animation = 'none'; void el.offsetWidth; el.style.animation = ''; }
+    toastAction = action; el.style.cursor = action ? 'pointer' : '';
+    clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(hideToast, 4500);
+  }
+  $('toast').addEventListener('click', () => { if (toastAction) toastAction(); hideToast(); });
 
   /* ================= lyrics ================= */
   // LRC "[mm:ss.xx] text" -> [{t, text}], or null when the text has no timestamps
@@ -1093,8 +1065,11 @@ const Scene = (() => {
     }
     if (!hit) return null;
     if (hit.instrumental) return { lines: null, plain: null, instrumental: true, source: 'LRCLIB' };
-    return { lines: parseLrc(hit.syncedLyrics), plain: hit.plainLyrics || null, source: 'LRCLIB' };
+    return { lines: parseLrc(hit.syncedLyrics), plain: hit.plainLyrics || null, raw: hit.syncedLyrics || hit.plainLyrics || '', source: 'LRCLIB' };
   }
+  const lyStoreKey = (tr) => 'jewel-ly:' + norm(tr.artist) + '|' + norm(tr.title);
+  function lyStoreGet(tr) { try { return localStorage.getItem(lyStoreKey(tr)); } catch (e) { return null; } }
+  function lyStoreSet(tr, text) { try { if (text) localStorage.setItem(lyStoreKey(tr), text); } catch (e) {} }
   async function lyricsFor(tr, cd) {
     const key = (cd.id || cd.name) + '|' + tr.title + '|' + (tr.artist || '');
     if (lyCache.has(key)) return lyCache.get(key);
@@ -1102,10 +1077,14 @@ const Scene = (() => {
     if (tr.demoLyrics) res = { lines: tr.demoLyrics.map(([t, text]) => ({ t, text })), source: 'Demo-Lyrics' };
     else if (tr.lyricsText) res = { lines: parseLrc(tr.lyricsText), plain: tr.lyricsText, source: 'Aus der Datei' };
     else if (tr.synth) res = { instrumental: true, source: 'Demo-CD' };
-    else {
+    else if (lyStoreGet(tr)) {
+      const saved = lyStoreGet(tr);
+      res = saved === '[instrumental]' ? { instrumental: true, source: 'Gespeichert' } : { lines: parseLrc(saved), plain: saved, source: 'Gespeichert' };
+    } else {
       const artist = tr.artist || (cd.live ? '' : cd.name);
       res = await onlineLyrics(tr.title, artist, tr.album || '', duration());
-      if (!res) res = { missing: true };
+      if (res) lyStoreSet(tr, res.instrumental ? '[instrumental]' : res.raw);
+      else res = { missing: true };
     }
     lyCache.set(key, res);
     return res;
@@ -1175,7 +1154,7 @@ const Scene = (() => {
   }
   async function saveLyrics(tr, cd, text) {
     text = (text || '').trim(); if (!text) return;
-    tr.lyricsText = text;
+    tr.lyricsText = text; lyStoreSet(tr, text);
     if (cd.rec) { const i = cd.tracks.indexOf(tr); if (i >= 0) { cd.rec.songs[i].lyrics = text; await dbPut(cd.rec); } }
     lyCache.delete((cd.id || cd.name) + '|' + tr.title + '|' + (tr.artist || ''));
     ly.stagger = true; await loadLyrics(); setTimeout(() => { ly.stagger = false; }, 1500);
@@ -1277,7 +1256,7 @@ const Scene = (() => {
     onHttp(id, status, body) { const r = http.get(id); if (r) { http.delete(id); r(status >= 200 && status < 300 ? body : null); } },
     onAccess(granted) {
       if (!granted) toast('Tippe hier und erlaube „Jewel CD“ den Zugriff auf Benachrichtigungen, damit die App sieht, was dein iPhone spielt.', () => { try { Bridge.openAccess(); } catch (e) {} }, true);
-      else if (toastAction) $('toast').hidden = true;
+      else if (toastAction) hideToast();
     },
     onPhone() {
       const i = cds.indexOf(LIVE);
@@ -1387,7 +1366,14 @@ const Scene = (() => {
   // each song shows its own artwork when it has one; otherwise the CD's cover
   const trackCover = () => curTrack().cover || curCd().cover;
   let shownCover = null;
-  function renderCase(animate = false) { const c = trackCover(); shownCover = c; Scene.setCover(c, animate); ambientFrom(c); }
+  function renderCase(animate = false) {
+    const c = trackCover(), cd = curCd(); shownCover = c; Scene.setCover(c, animate); ambientFrom(c);
+    if (cd.nowCover !== c) {
+      cd.nowCover = c;
+      if (cd.rec && cd.rec.lastCover !== c) { cd.rec.lastCover = c; dbPut(cd.rec); }
+      renderThumbs();
+    }
+  }
   // older imports have no per-song cover yet: read it from the file once and remember it
   async function ensureTrackCover() {
     const cd = curCd(), i = state.track, tr = cd.tracks[i];
@@ -1406,7 +1392,7 @@ const Scene = (() => {
       const b = document.createElement('button');
       b.className = 'thumb'; b.setAttribute('aria-label', `CD ${cd.name}`); b.title = cd.name;
       b.setAttribute('aria-current', i === state.cd ? 'true' : 'false');
-      const ic = document.createElement('i'); ic.style.setProperty('--cover', `url("${cd.cover}")`);
+      const ic = document.createElement('i'); ic.style.setProperty('--cover', `url("${cd.nowCover || cd.cover}")`);
       b.appendChild(ic); b.addEventListener('click', () => switchCd(i));
       box.appendChild(b);
     });
@@ -1532,7 +1518,7 @@ const Scene = (() => {
     try { const d = await db(); await new Promise((res) => { const tx = d.transaction(STORE, 'readwrite'); tx.objectStore(STORE).delete(id); tx.oncomplete = res; tx.onerror = res; }); } catch (e) {}
   }
   function fromRecord(rec) {
-    return { id: rec.id, name: rec.name, cover: rec.cover, demo: false, rec,
+    return { id: rec.id, name: rec.name, cover: rec.cover, nowCover: rec.lastCover || '', demo: false, rec,
       tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, lyricsText: s.lyrics || '', cover: s.cover || '', url: s.blob ? URL.createObjectURL(s.blob) : null })) };
   }
   function squareCover(file) {
@@ -1595,7 +1581,7 @@ const Scene = (() => {
     if (n === 1) setTimeout(() => $('cdName').focus(), 450);
   }
   function openWizard(step = 1) {
-    $('addBtn').classList.remove('pulse'); $('toast').hidden = true;
+    $('addBtn').classList.remove('pulse'); hideToast();
     if (setLyrics && ly.open) setLyrics(false);
     $('sheet').reset(); wiz.cover = null; $('coverLabel').textContent = 'Bild auswählen'; $('wizFiles').innerHTML = '';
     renderOwn(); showStep(step); wizPreview();
