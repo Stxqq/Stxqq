@@ -232,8 +232,11 @@ body {
 .ly-actions a, .ly-actions button { font: inherit; font-size: .95rem; font-weight: 600; padding: 10px 18px; border-radius: 999px; cursor: pointer; text-decoration: none;
   border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: #fff; }
 .ly-actions .primary { background: #fff; color: #111; border-color: #fff; }
-.ly-edit { display: grid; gap: 10px; margin-top: 16px; }
-.ly-edit textarea { font: inherit; font-size: .95rem; min-height: 26vh; padding: 12px 14px; border-radius: 14px; resize: vertical;
+.ly-edit { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; padding: 18px;
+  border-radius: 18px; background: rgba(10,10,12,.72); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,.14); }
+.ly-edit h3 { margin: 0; font-size: 1.1rem; }
+.ly-edit .ly-actions { margin-top: 0; justify-content: flex-end; }
+.ly-edit textarea { flex: 1; min-height: 0; font: inherit; font-size: .95rem; padding: 12px 14px; border-radius: 14px; resize: none;
   border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.35); color: #fff; user-select: text; }
 .ctl.lyr[aria-pressed="true"] { background: var(--ink); color: var(--ink-fg); }
 @media (max-width: 720px) { .lyrics { grid-template-columns: 1fr; gap: 12px; padding-block: 16px 120px; } .ly-head { grid-template-columns: 64px 1fr; align-items: center; } }
@@ -486,7 +489,7 @@ const Scene = (() => {
     new THREE.MeshBasicMaterial({ map: bkTex, toneMapped: false, transparent: true, opacity: 0 }));
   booklet.position.z = -.007; booklet.rotation.y = Math.PI; lidGroup.add(booklet);
   let coverImg = null;
-  const info = { title: '', artist: '', meta: '', cur: 0, dur: 0, playing: false };
+  const info = { title: '', artist: '', meta: '', cur: 0, dur: 0, playing: false, shuffle: false };
   const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const rr = (x, y, w, h, r) => { bk.beginPath(); bk.roundRect ? bk.roundRect(x, y, w, h, r) : bk.rect(x, y, w, h); };
   const fit = (text, max) => { if (bk.measureText(text).width <= max) return text; let s = text; while (s.length > 1 && bk.measureText(s + '…').width > max) s = s.slice(0, -1); return s + '…'; };
@@ -496,6 +499,17 @@ const Scene = (() => {
     const r = 6, a = [x, y - h / 2], b = [x + dir * w, y], c = [x, y + h / 2];
     g.beginPath(); g.moveTo((a[0] + c[0]) / 2, (a[1] + c[1]) / 2);
     g.arcTo(...a, ...b, r); g.arcTo(...b, ...c, r); g.arcTo(...c, ...a, r); g.closePath(); g.fill();
+  }
+  // two crossing arrows; dark with a dot underneath when shuffle is on
+  function drawShuffle(g, cx, cy, on) {
+    const w = 64, h = 40, col = on ? '#111318' : '#a3a7b0';
+    g.save(); g.strokeStyle = col; g.fillStyle = col; g.lineWidth = 6; g.lineCap = 'round'; g.lineJoin = 'round';
+    const L = cx - w / 2, R = cx + w / 2 - 12, T = cy - h / 2, B = cy + h / 2;
+    g.beginPath(); g.moveTo(L, B); g.bezierCurveTo(cx - 6, B, cx + 2, T, R, T); g.stroke();
+    g.beginPath(); g.moveTo(L, T); g.bezierCurveTo(cx - 6, T, cx + 2, B, R, B); g.stroke();
+    [[R, T], [R, B]].forEach(([x, y]) => { g.beginPath(); g.moveTo(x + 14, y); g.lineTo(x - 2, y - 11); g.lineTo(x - 2, y + 11); g.closePath(); g.fill(); });
+    if (on) { g.beginPath(); g.arc(cx, cy + 40, 5, 0, Math.PI * 2); g.fill(); }
+    g.restore();
   }
   function drawSkip(g, cx, cy, dir) {
     const w = 44, h = 52;
@@ -533,6 +547,7 @@ const Scene = (() => {
     // transport: rewind, play/pause, forward
     const cyc = 930; g.fillStyle = '#111318';
     drawSkip(g, BK / 2 - 190, cyc, -1); drawSkip(g, BK / 2 + 190, cyc, 1);
+    drawShuffle(g, BK / 2 - 345, cyc, info.shuffle);
     if (info.playing) { rr(BK / 2 - 30, cyc - 40, 22, 80, 6); g.fill(); rr(BK / 2 + 8, cyc - 40, 22, 80, 6); g.fill(); }
     else drawTri(g, BK / 2 - 24, cyc, 64, 76, 1);
     g.textBaseline = 'alphabetic';
@@ -661,6 +676,7 @@ const Scene = (() => {
     if (!h || !h.uv) return null;
     const px = h.uv.x * BK, py = (1 - h.uv.y) * BK;
     if (py > 870 && py < 990) {
+      if (Math.abs(px - (BK / 2 - 345)) < 60) return 'shuffle';
       if (Math.abs(px - (BK / 2 - 190)) < 80) return 'prev';
       if (Math.abs(px - BK / 2) < 70) return 'toggle';
       if (Math.abs(px - (BK / 2 + 190)) < 80) return 'next';
@@ -1102,6 +1118,7 @@ const Scene = (() => {
     $('lyDiscSpin').style.backgroundImage = `url("${cd.cover}")`; $('lyDiscCover').src = cd.cover; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
     $('lySource').textContent = 'Lyrics werden gesucht …';
     const box = $('lyLines'); box.innerHTML = ''; box.style.transform = '';
+    document.querySelectorAll('.ly-edit').forEach(e => e.remove());
     box.style.position = ''; box.style.paddingBlock = ''; $('lyViewport').style.overflowY = '';
     $('lyViewport').classList.remove('ly-plain');
     const data = await lyricsFor(tr, cd);
@@ -1118,14 +1135,20 @@ const Scene = (() => {
       find.href = 'https://lrclib.net/search/' + encodeURIComponent(`${tr.artist || ''} ${tr.title}`.trim());
       const paste = document.createElement('button'); paste.type = 'button'; paste.className = 'primary'; paste.textContent = 'Lyrics einfügen';
       paste.addEventListener('click', () => {
-        act.remove();
+        // a fixed panel over the lyrics column: the text scrolls inside, the buttons always stay visible
+        const vr = $('lyViewport').getBoundingClientRect();
         const ed = document.createElement('div'); ed.className = 'ly-edit';
+        Object.assign(ed.style, { left: vr.left + 'px', top: Math.max(16, vr.top) + 'px', width: vr.width + 'px', height: Math.min(vr.height, innerHeight - 140 - Math.max(16, vr.top)) + 'px' });
+        const head = document.createElement('h3'); head.textContent = 'Lyrics einfügen';
         const ta = document.createElement('textarea'); ta.placeholder = '[00:12.30] Erste Zeile …\n[00:16.80] Zweite Zeile …\n\noder einfach den Text ohne Zeiten';
-        const save = document.createElement('button'); save.type = 'button'; save.textContent = 'Speichern';
-        const row = document.createElement('div'); row.className = 'ly-actions'; row.append(save);
-        save.classList.add('primary');
-        save.addEventListener('click', () => saveLyrics(tr, cd, ta.value));
-        ed.append(ta, row); wrap.appendChild(ed); ta.focus();
+        const save = document.createElement('button'); save.type = 'button'; save.textContent = 'Speichern'; save.className = 'primary';
+        const cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Abbrechen';
+        const row = document.createElement('div'); row.className = 'ly-actions'; row.append(cancel, save);
+        const done = () => ed.remove();
+        save.addEventListener('click', () => { const v = ta.value; done(); saveLyrics(tr, cd, v); });
+        cancel.addEventListener('click', done);
+        ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); save.click(); } });
+        ed.append(head, ta, row); $('lyrics').appendChild(ed); ta.focus();
       });
       act.append(paste, find); wrap.appendChild(act);
       return;
@@ -1207,6 +1230,7 @@ const Scene = (() => {
     ly.open = on;
     $('lyricsBtn').setAttribute('aria-pressed', on ? 'true' : 'false');
     $('app').classList.toggle('ly-open', on);
+    if (!on) document.querySelectorAll('.ly-edit').forEach(e => e.remove());
     if (lyAnim) lyAnim.forEach(a => a && a.cancel());
     lyAnim = null;
     if (on) {
@@ -1285,13 +1309,29 @@ const Scene = (() => {
     state.open = on;
     on ? Scene.open() : Scene.close();
   }
+  let shuffleOn = false; try { shuffleOn = localStorage.getItem('jewel-shuffle') === '1'; } catch (e) {}
+  const shuffleHistory = [];
+  function toggleShuffle() {
+    if (isLive()) { toast('Shuffle stellst du für die Live-CD direkt am Handy ein.'); return; }
+    shuffleOn = !shuffleOn; shuffleHistory.length = 0;
+    try { localStorage.setItem('jewel-shuffle', shuffleOn ? '1' : '0'); } catch (e) {}
+    Scene.setInfo({ shuffle: shuffleOn });
+    toast(shuffleOn ? 'Zufallswiedergabe an' : 'Zufallswiedergabe aus');
+  }
+  function shufflePick() {
+    const tr = curCd().tracks, pool = tr.map((t, i) => i).filter(i => i !== state.track && playable(tr[i]));
+    return pool.length ? pool[Math.floor(Math.random() * pool.length)] : -1;
+  }
   function step(dir) {
     if (isLive()) { try { dir > 0 ? Bridge.next() : Bridge.prev(); } catch (e) {} return; }
     const n = curCd().tracks.length;
     if (dir < 0 && elapsed() > 4) { seek(0); return; }
     const was = state.playing;
     if (was) stopSound();
-    const nextI = firstPlayable(state.track + dir, dir);
+    let nextI;
+    if (shuffleOn && dir > 0) { nextI = shufflePick(); if (nextI >= 0) shuffleHistory.push(state.track); }
+    else if (shuffleOn && dir < 0 && shuffleHistory.length) nextI = shuffleHistory.pop();
+    else nextI = firstPlayable(state.track + dir, dir);
     state.track = nextI < 0 ? (state.track + dir + n) % n : nextI;
     loadTrack();
     if (was) startSound();
@@ -1325,7 +1365,7 @@ const Scene = (() => {
     $('npCd').textContent = cd.live ? `iPhone · Bluetooth${L.app ? ' · ' + L.app : ''} · ${t.artist}` :
       `${cd.name} · ${cd.demo ? 'Demo-CD' : (t.artist || 'Eigene CD')} · ${state.track + 1}/${cd.tracks.length}` + (have < cd.tracks.length ? ` · ${have} Dateien da` : '') + (playable(t) ? '' : ' · Datei fehlt');
     $('npTitle').textContent = t.title;
-    Scene.setInfo({ title: t.title, artist: t.artist || cd.name, meta: cd.live ? `iPhone · Bluetooth${t.album ? ' · ' + t.album : ''}` : `${cd.name} · Track ${state.track + 1} von ${cd.tracks.length}`, cur: elapsed(), dur: duration() });
+    Scene.setInfo({ shuffle: shuffleOn && !cd.live, title: t.title, artist: t.artist || cd.name, meta: cd.live ? `iPhone · Bluetooth${t.album ? ' · ' + t.album : ''}` : `${cd.name} · Track ${state.track + 1} von ${cd.tracks.length}`, cur: elapsed(), dur: duration() });
     if ('mediaSession' in navigator) {
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: cd.name, album: cd.name, artwork: [{ src: cd.cover, sizes: '400x400' }] }); } catch (e) {}
     }
@@ -1406,6 +1446,7 @@ const Scene = (() => {
       if (a === 'prev') step(-1);
       else if (a === 'next') step(1);
       else if (a === 'toggle') toggle();
+      else if (a === 'shuffle') toggleShuffle();
       else if (a && a.seek !== undefined) seek(a.seek * duration());
       else if (a === 'none') { /* tap on the booklet text: ignore */ }
       else if (Scene.hit(e.clientX, e.clientY)) toggle();
