@@ -166,42 +166,36 @@ body {
 .own-item button { font: inherit; font-size: .8rem; color: var(--danger); background: none; border: 0; cursor: pointer; padding: 6px; }
 .drop { position: fixed; inset: 12px; z-index: 20; border: 2px dashed var(--fg); border-radius: 22px; display: grid; place-items: center; background: rgba(245, 246, 248, .85); font-size: 1.2rem; font-weight: 600; pointer-events: none; }
 .toast {
-  /* outer layer only positions and casts a shadow that follows the bubble's real shape (fillets included) */
+  /* window that ends exactly on the dock's top edge: the bubble rises out of it and sinks back into it */
   position: fixed; left: 50%; bottom: calc(104px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   width: max-content; max-width: min(560px, calc(100% - 32px)); z-index: 7;
-  padding: 18px 20px 0; overflow: hidden;   /* room for fillets and shadow; anything below the dock edge is cut off */
-  filter: drop-shadow(0 -5px 10px rgba(20,24,34,.07)) drop-shadow(0 -1px 2px rgba(20,24,34,.05));
+  padding: 18px 20px 0; overflow: hidden;
 }
+.toast-shape {
+  /* own GPU layer: the shape-following shadow is drawn once, the animation only moves the layer */
+  filter: drop-shadow(0 -5px 10px rgba(20,24,34,.07)) drop-shadow(0 -1px 2px rgba(20,24,34,.05));
+  will-change: transform; transform: translate3d(0, 0, 0);
+  animation: toastIn .62s cubic-bezier(.16, 1, .3, 1) both;
+}
+.toast.leaving .toast-shape { animation: toastOut .42s cubic-bezier(.55, 0, .75, .3) .06s both; }
+@keyframes toastIn { from { transform: translate3d(0, 102%, 0); } to { transform: translate3d(0, 0, 0); } }
+@keyframes toastOut { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(0, 102%, 0); } }
 .toast-body {
   /* the bubble that grows out of the top of the dock: same surface, joined by concave fillets */
   --fillet: 20px;
-  position: relative; box-sizing: border-box; padding: 14px 24px 12px; border-radius: 24px 24px 0 0; text-align: center;
+  position: relative; box-sizing: border-box; padding: 14px 24px 15px; border-radius: 24px 24px 0 0; text-align: center;
   color: var(--fg); background: var(--surface); font-size: .95rem; font-weight: 500; line-height: 1.4;
-  animation: toastIn .8s cubic-bezier(.2, .9, .25, 1) both;
 }
 .toast-body::before, .toast-body::after {
   content: ""; position: absolute; bottom: 0; width: var(--fillet); height: var(--fillet); pointer-events: none;
 }
 .toast-body::before { left: calc(var(--fillet) * -1); background: radial-gradient(circle at 0 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
 .toast-body::after { right: calc(var(--fillet) * -1); background: radial-gradient(circle at 100% 0, transparent calc(var(--fillet) - .5px), var(--surface) var(--fillet)); }
-/* revealed, never stretched: the clip grows from a small drop at the dock's centre */
-@keyframes toastIn {
-  0% { clip-path: inset(100% 46% 0 46% round 40px 40px 0 0); }
-  55% { clip-path: inset(-4px -20px 0 -20px round 28px 28px 0 0); }
-  100% { clip-path: inset(0 -20px 0 -20px round 24px 24px 0 0); }
-}
-/* leaving: a small lift, then it slides down and disappears at the dock's top edge, rounded top intact */
-.toast.leaving .toast-body { animation: toastOut .55s cubic-bezier(.5, 0, .25, 1) .08s both; clip-path: inset(0 -20px 0 -20px round 24px 24px 0 0); }
-@keyframes toastOut {
-  0% { transform: translateY(0); }
-  22% { transform: translateY(-5px); }
-  100% { transform: translateY(calc(100% + 8px)); }
-}
-.toast-text { display: block; animation: toastText .5s cubic-bezier(.22, 1, .36, 1) .22s both; }
-.toast.leaving .toast-text { animation: toastTextOut .2s ease-in both; }
-@keyframes toastText { from { opacity: 0; transform: translateY(10px); filter: blur(5px); } }
-@keyframes toastTextOut { to { opacity: 0; transform: translateY(8px) scale(.97); filter: blur(4px); } }
-@media (prefers-reduced-motion: reduce) { .toast-body, .toast.leaving .toast-body, .toast-text, .toast.leaving .toast-text { animation: none; } }
+.toast-text { display: block; animation: toastText .45s cubic-bezier(.22, 1, .36, 1) .16s both; }
+.toast.leaving .toast-text { animation: toastTextOut .18s ease-in both; }
+@keyframes toastText { from { opacity: 0; transform: translateY(6px); } }
+@keyframes toastTextOut { to { opacity: 0; transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .toast-shape, .toast.leaving .toast-shape, .toast-text, .toast.leaving .toast-text { animation: none; } }
 .ctl.add.pulse { color: var(--ink-fg); background: var(--ink); animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.12); } }
 .lyrics {
@@ -1036,17 +1030,17 @@ const Scene = (() => {
   function hideToast() {
     const el = $('toast'); if (el.hidden || el.classList.contains('leaving')) return;
     el.classList.add('leaving'); clearTimeout(toastLeaveT);
-    toastLeaveT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 680);
+    toastLeaveT = setTimeout(() => { el.hidden = true; el.classList.remove('leaving'); }, 540);
   }
   function toast(msg, action = null, sticky = false) {
     const el = $('toast'); clearTimeout(toastLeaveT); el.classList.remove('leaving');
     const wasOpen = !el.hidden && el.querySelector('.toast-body');
     let body = el.querySelector('.toast-body');
-    if (!wasOpen) { el.textContent = ''; body = document.createElement('div'); body.className = 'toast-body'; el.appendChild(body); }
+    if (!wasOpen) { el.textContent = ''; const shape = document.createElement('div'); shape.className = 'toast-shape'; body = document.createElement('div'); body.className = 'toast-body'; shape.appendChild(body); el.appendChild(shape); }
     body.textContent = ''; const span = document.createElement('span'); span.className = 'toast-text'; span.textContent = msg; body.appendChild(span);
     const dock = document.querySelector('.dock').getBoundingClientRect();
-    el.style.bottom = (innerHeight - dock.top - 1) + 'px';
-    el.style.maxWidth = Math.min(560, dock.width - 32) + 'px';
+    el.style.bottom = Math.round(innerHeight - dock.top - 3) + 'px';
+    el.style.maxWidth = Math.min(560, dock.width - 110) + 'px';
     if (el.hidden) el.hidden = false; else if (wasOpen) span.style.animationDelay = '0s';   // already open: just swap the text
     toastAction = action; el.style.cursor = action ? 'pointer' : '';
     clearTimeout(toastTimer); if (!sticky) toastTimer = setTimeout(hideToast, 4500);
