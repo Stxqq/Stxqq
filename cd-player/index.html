@@ -1417,6 +1417,16 @@ const Scene = (() => {
     const v = JSON.stringify({ cd: cd.id || cd.name, track: state.track, pos: Math.floor(elapsed()) });
     if (v === lastSaved) return;
     lastSaved = v; try { localStorage.setItem(LAST_KEY, v); } catch (e) {}
+    const m = cdPosAll(); m[cd.id || cd.name] = { track: state.track, pos: Math.floor(elapsed()) };
+    try { localStorage.setItem('jewel-cdpos', JSON.stringify(m)); } catch (e) {}
+  }
+  // every CD remembers its own song and position
+  function cdPosAll() { try { return JSON.parse(localStorage.getItem('jewel-cdpos') || '{}') || {}; } catch (e) { return {}; } }
+  function resumeAt(pos) {
+    if (!(pos > 2)) return;
+    const t = curTrack();
+    if (t.synth) state.synthOffset = pos;
+    else if (t.url) audio.addEventListener('loadedmetadata', () => { if (curTrack() === t && audio.currentTime < 1) audio.currentTime = Math.min(pos, audio.duration - 1); }, { once: true });
   }
   let restoring = true;
   function restoreLast() {
@@ -1426,12 +1436,7 @@ const Scene = (() => {
     const i = cds.findIndex(c => (c.id || c.name) === v.cd);
     if (i < 0 || !cds[i].tracks[v.track]) return;
     state.cd = i; state.track = v.track;
-    renderCase(); loadTrack(); renderThumbs();
-    if (v.pos > 2) {
-      const t = curTrack();
-      if (t.synth) state.synthOffset = v.pos;
-      else if (t.url) audio.addEventListener('loadedmetadata', () => { if (curTrack() === t && audio.currentTime < 1) audio.currentTime = Math.min(v.pos, audio.duration - 1); }, { once: true });
-    }
+    renderCase(); loadTrack(); renderThumbs(); resumeAt(v.pos);
     lastSaved = JSON.stringify(v);
   }
   addEventListener('pagehide', saveLast);
@@ -1456,8 +1461,11 @@ const Scene = (() => {
     setPlaying(false);
     switching = true;
     await Scene.swap(() => {
-      state.cd = i; state.track = 0;
+      saveLast();
+      const cd = cds[i], s = cdPosAll()[cd.id || cd.name];
+      state.cd = i; state.track = s && cd.tracks[s.track] ? s.track : 0;
       renderCase(); loadTrack(); renderThumbs();
+      if (s && cd.tracks[s.track]) resumeAt(s.pos);
     }, dir || (i > state.cd ? 1 : -1));
     switching = false;
     if (was) setPlaying(true);
