@@ -321,7 +321,8 @@ public class MainActivity extends Activity {
                 lastArt = null;
                 Bitmap bmp = firstBitmap(m);
                 if (bmp != null) lastArt = toDataUrl(bmp);
-                else lookUpArtwork(title, artist, key);
+                // Bluetooth covers are often tiny (or missing): fetch the sharp Apple Music one
+                if (bmp == null || Math.max(bmp.getWidth(), bmp.getHeight()) < 500) lookUpArtwork(title, artist, key);
             }
             if (lastArt != null) o.put("art", lastArt);
             send(o);
@@ -362,7 +363,7 @@ public class MainActivity extends Activity {
     }
 
     private static String toDataUrl(Bitmap src) {
-        int max = 600;
+        int max = 1000;
         Bitmap b = src;
         if (src.getWidth() > max || src.getHeight() > max) {
             float k = (float) max / Math.max(src.getWidth(), src.getHeight());
@@ -384,7 +385,7 @@ public class MainActivity extends Activity {
                 JSONObject res = new JSONObject(get("https://itunes.apple.com/search?entity=song&limit=1&term=" + term));
                 JSONArray r = res.optJSONArray("results");
                 if (r == null || r.length() == 0) return;
-                String url = r.getJSONObject(0).optString("artworkUrl100", "").replace("100x100bb", "600x600bb");
+                String url = r.getJSONObject(0).optString("artworkUrl100", "").replace("100x100bb", "1000x1000bb");
                 if (url.isEmpty()) return;
                 HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
                 c.setConnectTimeout(8000);

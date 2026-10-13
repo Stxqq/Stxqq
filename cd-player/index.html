@@ -11,7 +11,9 @@
 <style>
 /* Layout: white product-shot studio, clear plastic case floating centre, caption line, floating pill dock.
    Single light look by choice, like a product render. */
+@property --amb { syntax: '<color>'; inherits: true; initial-value: #ffffff; }
 :root {
+  --amb: #ffffff;
   --bg: #f5f6f8;
   --bg-glow: #ffffff;
   --fg: #15171c;
@@ -29,7 +31,8 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
-  background: radial-gradient(ellipse at 50% 35%, var(--bg-glow) 0%, var(--bg) 75%) var(--bg);
+  background: radial-gradient(ellipse at 50% 32%, color-mix(in srgb, var(--amb) 22%, var(--bg-glow)) 0%, var(--bg) 78%) var(--bg);
+  transition: --amb 1.2s ease;
   color: var(--fg); font-family: var(--font-ui);
   overflow: hidden; -webkit-tap-highlight-color: transparent; user-select: none;
 }
@@ -191,6 +194,9 @@ body {
   background: conic-gradient(from 30deg, transparent 0 20deg, rgba(255,255,255,.4) 40deg, rgba(150,220,255,.22) 55deg, transparent 80deg 200deg, rgba(255,255,255,.3) 225deg, rgba(255,170,220,.18) 240deg, transparent 265deg); }
 .ly-disc-hub { inset: 33%; background: radial-gradient(circle, transparent 0 21%, rgba(255,255,255,.6) 22% 24%, rgba(20,22,28,.55) 25% 58%, rgba(255,255,255,.35) 59% 61%, rgba(20,22,28,.85) 62% 99%); }
 .ly-slot { width: 100%; aspect-ratio: 1; visibility: hidden; }
+.ly-disc-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; opacity: 0; }
+.ly-disc.is-cover .ly-disc-cover { opacity: 1; border-radius: 14px; }
+.ly-disc.is-cover .ly-disc-spin, .ly-disc.is-cover .ly-disc-sheen, .ly-disc.is-cover .ly-disc-hub { opacity: 0; }
 .ly-meta, .ly-viewport { transition: opacity .6s 1.15s, transform .8s 1.15s cubic-bezier(.22, 1, .36, 1); }
 .lyrics.entering .ly-meta { opacity: 0; transform: translateY(12px); transition-delay: 0s; transition-duration: .25s; }
 .lyrics.entering .ly-viewport { opacity: 0; transition-delay: 0s; transition-duration: .25s; }
@@ -232,7 +238,7 @@ body {
 <canvas id="gl" aria-label="3D CD-Hülle. Antippen öffnet sie und spielt die CD ab."></canvas>
 <section class="lyrics" id="lyrics" hidden aria-label="Lyrics">
   <div class="ly-bg" id="lyBg"></div>
-  <div class="ly-disc" id="lyDisc"><div class="ly-disc-spin" id="lyDiscSpin"></div><i class="ly-disc-sheen"></i><i class="ly-disc-hub"></i></div>
+  <div class="ly-disc" id="lyDisc"><div class="ly-disc-spin" id="lyDiscSpin"></div><i class="ly-disc-sheen"></i><i class="ly-disc-hub"></i><img class="ly-disc-cover" id="lyDiscCover" alt=""></div>
   <header class="ly-head">
     <div class="ly-slot" id="lySlot"></div>
     <div class="ly-meta"><strong id="lyTitle"></strong><span id="lyArtist"></span>
@@ -347,7 +353,7 @@ const Scene = (() => {
   } catch (e) {
     document.getElementById('fail').hidden = false;
     const noop = () => {};
-    return { setCover: noop, open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false, tapAction: () => null, setInfo: noop, setProgress: noop, discRect: () => ({ x: innerWidth / 2, y: innerHeight / 2, r: 120 }), openQuick: async () => {}, setDiscVisible: noop, drag: noop, dragCancel: noop };
+    return { setCover: noop, /* animate flag ignored */ open: noop, close: noop, swap: async (cb) => cb(), setPlaying: noop, hit: () => false, tapAction: () => null, setInfo: noop, setProgress: noop, discRect: () => ({ x: innerWidth / 2, y: innerHeight / 2, r: 120 }), openQuick: async () => {}, setDiscVisible: noop, drag: noop, dragCancel: noop };
   }
   renderer.setClearColor(0x000000, 0);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -566,7 +572,8 @@ const Scene = (() => {
   addEventListener('resize', resize); resize();
 
   /* animation */
-  const st = { spin: 0, lid: 0, shift: 0, fly: 0, tilt: 0, discVel: 0, playing: false };
+  const st = { spin: 0, lid: 0, shift: 0, fly: 0, tilt: 0, discVel: 0, playing: false, flip: 0 };
+  let discAngle = 0;
   const tweens = [];
   const ease = {
     io: t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2,
@@ -579,10 +586,13 @@ const Scene = (() => {
   }
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  function setCover(url) {
+  let coverSeq = 0;
+  function setCover(url, animate = false) {
     // print the cover onto a black disc, like the reference
-    const img = new Image();
-    img.onload = () => {
+    const img = new Image(), seq = ++coverSeq;
+    img.onload = async () => {
+      if (seq !== coverSeq) return;
+      if (animate && !reduced) { await tween('flip', .5, .45, ease.in); if (seq !== coverSeq) return; }
       const N = 1024, c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
       g.fillStyle = '#0b0b0d'; g.fillRect(0, 0, N, N);
       g.save(); g.beginPath(); g.arc(N / 2, N / 2, N / 2 * .965, 0, Math.PI * 2); g.clip();
@@ -594,6 +604,7 @@ const Scene = (() => {
       if (labelMat.map) labelMat.map.dispose();
       labelMat.map = tex; labelMat.needsUpdate = true;
       coverImg = img; drawBooklet();
+      if (animate && !reduced) { await tween('flip', 1, .6, ease.out); st.flip = 0; }
     };
     img.src = url;
   }
@@ -669,7 +680,10 @@ const Scene = (() => {
       if (p >= 1) { tweens.splice(i, 1); tw.res(); }
     }
     st.discVel += ((st.playing ? 4.5 : 0) - st.discVel) * Math.min(1, dt * 1.5);
-    disc.rotation.z -= st.discVel * dt;
+    discAngle -= st.discVel * dt;
+    disc.rotation.z = discAngle - st.flip * Math.PI * 2;
+    disc.scale.setScalar(1 + Math.sin(st.flip * Math.PI) * .07);
+    disc.position.z = -T / 2 + .02 + Math.sin(st.flip * Math.PI) * .07;
 
     const sway = reduced ? 0 : 1 - st.shift * .6;
     root.rotation.y = -.45 * (1 - st.shift) + st.spin + Math.sin(t * .5) * .07 * sway;
@@ -831,6 +845,22 @@ const Scene = (() => {
   let switching = false;
 
   /* ---------- live CD: whatever the phone plays over Bluetooth (Android app only) ---------- */
+  if (!window.AndroidBridge && location.hash === '#live') window.AndroidBridge = makeDemoPhone();
+  function makeDemoPhone() {
+    const songs = [['Te Molla (feat. Killua)', 'Arnon', 'Te Molla - Single', 196, ['#f2f2f2', '#c8102e', '#111']], ['MONACO 1990', 'MARXO', 'MONACO 1990 - Single', 168, ['#0b2a6f', '#e9c46a', '#e63946']],
+      ['Show Me Love', 'Robin S.', 'Show Me Love', 269, ['#ff4fa3', '#7b2ff7', '#14002e']], ['Fizzy', 'ZARG', 'Fizzy - Single', 197, ['#ffe259', '#ffa751', '#2a1a00']]];
+    const art = (cols, label) => { const c = document.createElement('canvas'); c.width = c.height = 600; const g = c.getContext('2d');
+      const gr = g.createLinearGradient(0, 0, 600, 600); cols.forEach((col, i) => gr.addColorStop(i / (cols.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, 600, 600);
+      g.fillStyle = 'rgba(255,255,255,.85)'; g.font = '700 54px Arial'; g.fillText(label.toUpperCase().slice(0, 14), 40, 540); return c.toDataURL('image/jpeg', .9); };
+    let i = 0, pos = 30, playing = true, at = performance.now();
+    const now = () => pos + (playing ? (performance.now() - at) / 1000 : 0);
+    const send = () => { const [title, artist, album, dur, cols] = songs[i]; window.NativeMedia && NativeMedia.onUpdate({ title, artist, album, duration: dur * 1000, position: now() * 1000, playing, speed: 1, app: 'Apple Music (Demo)', art: art(cols, title) }); };
+    const go = (d) => { i = (i + d + songs.length) % songs.length; pos = 0; at = performance.now(); send(); };
+    setInterval(() => { if (playing && now() >= songs[i][3]) go(1); }, 1000);
+    return { ready() { setTimeout(() => { NativeMedia.onAccess(true); send(); }, 300); },
+      play() { pos = now(); at = performance.now(); playing = true; send(); }, pause() { pos = now(); playing = false; send(); },
+      next() { go(1); }, prev() { go(-1); }, seekTo(ms) { pos = ms / 1000; at = performance.now(); send(); }, openAccess() {}, openAutoStart() {} };
+  }
   const Bridge = window.AndroidBridge || null;
   function coverLive() {
     const S = 400, c = canvas(S), g = c.getContext('2d');
@@ -1074,7 +1104,7 @@ const Scene = (() => {
     const tr = curTrack(), cd = curCd(), key = lyricsKey();
     ly.key = key; ly.idx = -2;
     $('lyTitle').textContent = tr.title; $('lyArtist').textContent = tr.artist || cd.name;
-    $('lyDiscSpin').style.backgroundImage = `url("${cd.cover}")`; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
+    $('lyDiscSpin').style.backgroundImage = `url("${cd.cover}")`; $('lyDiscCover').src = cd.cover; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
     $('lySource').textContent = 'Lyrics werden gesucht …';
     const box = $('lyLines'); box.innerHTML = ''; box.style.transform = '';
     box.style.position = ''; box.style.paddingBlock = ''; $('lyViewport').style.overflowY = '';
@@ -1124,6 +1154,19 @@ const Scene = (() => {
   // fades in and the lines rise on the right. Closing flies the CD back into the case.
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   let lyAnim = null;
+  // circle disc <-> rounded album cover (border-radius 50% -> 14px, hole and rings fade out)
+  function coverMorph(toCover) {
+    const disc = $('lyDisc'), cov = $('lyDiscCover'), parts = [$('lyDiscSpin'), disc.querySelector('.ly-disc-sheen'), disc.querySelector('.ly-disc-hub')];
+    disc.classList.toggle('is-cover', toCover);
+    if (reduceMotion) return Promise.resolve();
+    const o = { duration: 700, easing: 'cubic-bezier(.65,0,.25,1)' };
+    const anims = [
+      cov.animate(toCover ? [{ opacity: 0, borderRadius: '50%', transform: 'rotate(-30deg) scale(.96)' }, { opacity: 1, borderRadius: '50%', offset: .35 }, { opacity: 1, borderRadius: '14px', transform: 'none' }]
+                          : [{ opacity: 1, borderRadius: '14px', transform: 'none' }, { opacity: 1, borderRadius: '50%', offset: .65 }, { opacity: 0, borderRadius: '50%', transform: 'rotate(-30deg) scale(.96)' }], o),
+      ...parts.map(el => el.animate(toCover ? [{ opacity: 1 }, { opacity: 0, offset: .4 }, { opacity: 0 }] : [{ opacity: 0 }, { opacity: 0, offset: .6 }, { opacity: 1 }], o)),
+    ];
+    return Promise.all(anims.map(a => a.finished)).catch(() => {});
+  }
   function slotRect() { const r = $('lySlot').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, r: r.width / 2 }; }
   function placeDisc(r) { const d = $('lyDisc'); d.style.width = d.style.height = r.r * 2 + 'px'; d.style.left = r.x - r.r + 'px'; d.style.top = r.y - r.r + 'px'; }
   function flight(from, to, reverse) {
@@ -1148,7 +1191,7 @@ const Scene = (() => {
     if (on) {
       $('lyViewport').style.overflowY = ''; $('lyLines').style.position = ''; $('lyLines').style.paddingBlock = '';
       ly.stagger = !reduceMotion; ly.lidWasClosed = !state.open;
-      el.classList.add('entering'); el.hidden = false;
+      el.classList.add('entering'); el.hidden = false; $('lyDisc').classList.remove('is-cover');
       loadLyrics(); requestAnimationFrame(lyLoop);
       $('lyBg').style.opacity = 0; disc.style.visibility = 'hidden';
       if (!state.open) { state.open = true; await Scene.openQuick(); }
@@ -1162,8 +1205,11 @@ const Scene = (() => {
       setTimeout(() => { ly.stagger = false; }, 2500);
       try { await lyAnim[0].finished; } catch (e) { return; }
       $('lyBg').style.opacity = ''; lyAnim.forEach(a => a.commitStyles && a.cancel()); lyAnim = null;
+      if (ly.open) coverMorph(true);
     } else {
       el.classList.add('entering');
+      if ($('lyDisc').classList.contains('is-cover')) await coverMorph(false);
+      if (ly.open) return;
       const to = slotRect(), back = Scene.discRect();
       placeDisc(to);
       const anims = lyAnim = reduceMotion ? [] : [flight(back, to, true),
@@ -1205,8 +1251,9 @@ const Scene = (() => {
       tr.title = o.title || 'Unbekannter Titel'; tr.artist = o.artist || ''; tr.album = o.album || '';
       L.dur = (o.duration || 0) / 1000; L.pos = (o.position || 0) / 1000; L.at = performance.now();
       L.speed = o.speed || 1; L.playing = !!o.playing; L.app = o.app || '';
-      if (o.art && o.art !== LIVE.cover) { LIVE.cover = o.art; if (isLive()) renderCase(); renderThumbs(); }
-      else if (key !== L.key && !o.art) { LIVE.cover = coverLive(); if (isLive()) renderCase(); renderThumbs(); }
+      const changed = key !== L.key;
+      if (o.art && o.art !== LIVE.cover) { LIVE.cover = o.art; if (isLive()) renderCase(changed); renderThumbs(); }
+      else if (changed && !o.art) { LIVE.cover = coverLive(); if (isLive()) renderCase(true); renderThumbs(); }
       if (key !== L.key) lyCache.forEach((v, k) => { if (k.startsWith('live|')) lyCache.delete(k); });
       L.key = key;
       if (isLive()) { renderInfo(); if (L.playing !== state.playing && !switching) setPlaying(L.playing, true); }
@@ -1262,7 +1309,18 @@ const Scene = (() => {
       try { navigator.mediaSession.metadata = new MediaMetadata({ title: t.title, artist: cd.name, album: cd.name, artwork: [{ src: cd.cover, sizes: '400x400' }] }); } catch (e) {}
     }
   }
-  function renderCase() { Scene.setCover(curCd().cover); }
+  function ambientFrom(url) {
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas'); c.width = c.height = 12; const g = c.getContext('2d');
+      g.drawImage(img, 0, 0, 12, 12); const d = g.getImageData(0, 0, 12, 12).data;
+      let best = null, score = -1;
+      for (let i = 0; i < d.length; i += 4) { const mx = Math.max(d[i], d[i + 1], d[i + 2]), mn = Math.min(d[i], d[i + 1], d[i + 2]), s = (mx - mn) + mx * .25; if (s > score) { score = s; best = [d[i], d[i + 1], d[i + 2]]; } }
+      if (best) document.documentElement.style.setProperty('--amb', `rgb(${best.join(',')})`);
+    };
+    img.src = url;
+  }
+  function renderCase(animate = false) { Scene.setCover(curCd().cover, animate); ambientFrom(curCd().cover); }
   function renderThumbs() {
     const box = $('thumbs'); box.textContent = '';
     cds.forEach((cd, i) => {
