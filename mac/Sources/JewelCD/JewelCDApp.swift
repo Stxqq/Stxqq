@@ -7,9 +7,8 @@ struct JewelCDApp: App {
 
     var body: some Scene {
         WindowGroup("Jewel CD") {
-            MusicFileLoaderView()
+            ContentView()
         }
-        .windowResizability(.contentSize)
     }
 }
 
