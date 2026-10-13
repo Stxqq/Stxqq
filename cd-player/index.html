@@ -1011,6 +1011,8 @@ const Scene = (() => {
     if (t.url) { audio.src = t.url; audio.load(); }
     else if (!t.synth) audio.removeAttribute('src');
     renderInfo();
+    if (shownCover !== null && trackCover() !== shownCover) renderCase(true);
+    ensureTrackCover();
   }
   function stopSound() {
     if (state.synth) { state.synthOffset = state.synth.elapsed(); state.synth.stop(); state.synth = null; }
@@ -1115,7 +1117,8 @@ const Scene = (() => {
     const tr = curTrack(), cd = curCd(), key = lyricsKey();
     ly.key = key; ly.idx = -2;
     $('lyTitle').textContent = tr.title; $('lyArtist').textContent = tr.artist || cd.name;
-    $('lyDiscSpin').style.backgroundImage = `url("${cd.cover}")`; $('lyDiscCover').src = cd.cover; $('lyBg').style.backgroundImage = `url("${cd.cover}")`;
+    const cv = tr.cover || cd.cover;
+    $('lyDiscSpin').style.backgroundImage = `url("${cv}")`; $('lyDiscCover').src = cv; $('lyBg').style.backgroundImage = `url("${cv}")`;
     $('lySource').textContent = 'Lyrics werden gesucht …';
     const box = $('lyLines'); box.innerHTML = ''; box.style.transform = '';
     document.querySelectorAll('.ly-edit').forEach(e => e.remove());
@@ -1381,7 +1384,22 @@ const Scene = (() => {
     };
     img.src = url;
   }
-  function renderCase(animate = false) { Scene.setCover(curCd().cover, animate); ambientFrom(curCd().cover); }
+  // each song shows its own artwork when it has one; otherwise the CD's cover
+  const trackCover = () => curTrack().cover || curCd().cover;
+  let shownCover = null;
+  function renderCase(animate = false) { const c = trackCover(); shownCover = c; Scene.setCover(c, animate); ambientFrom(c); }
+  // older imports have no per-song cover yet: read it from the file once and remember it
+  async function ensureTrackCover() {
+    const cd = curCd(), i = state.track, tr = cd.tracks[i];
+    if (!cd.rec || tr.cover || tr.coverChecked || !cd.rec.songs[i] || !cd.rec.songs[i].blob) return;
+    tr.coverChecked = true;
+    const tags = await readTags(cd.rec.songs[i].blob);
+    if (!tags.picture) return;
+    const c = await squareCover(tags.picture);
+    if (!c) return;
+    tr.cover = c; cd.rec.songs[i].cover = c; dbPut(cd.rec);
+    if (curCd() === cd && state.track === i) renderCase(true);
+  }
   function renderThumbs() {
     const box = $('thumbs'); box.textContent = '';
     cds.forEach((cd, i) => {
@@ -1515,7 +1533,7 @@ const Scene = (() => {
   }
   function fromRecord(rec) {
     return { id: rec.id, name: rec.name, cover: rec.cover, demo: false, rec,
-      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, lyricsText: s.lyrics || '', url: s.blob ? URL.createObjectURL(s.blob) : null })) };
+      tracks: rec.songs.map(s => ({ title: s.title, artist: s.artist || '', length: s.length || 0, lyricsText: s.lyrics || '', cover: s.cover || '', url: s.blob ? URL.createObjectURL(s.blob) : null })) };
   }
   function squareCover(file) {
     return new Promise((res) => {
@@ -1762,6 +1780,7 @@ const Scene = (() => {
       const cd = cds[slot.ci]; cd.rec.songs[slot.si].blob = f;
       const lyr = tags.lyrics || f._lrc || '';
       if (lyr) { cd.rec.songs[slot.si].lyrics = lyr; cd.tracks[slot.si].lyricsText = lyr; }
+      if (tags.picture) { const c = await squareCover(tags.picture); if (c) { cd.rec.songs[slot.si].cover = c; cd.tracks[slot.si].cover = c; } }
       cd.tracks[slot.si].url = URL.createObjectURL(f);
       touched.add(slot.ci);
     }
@@ -1780,7 +1799,8 @@ const Scene = (() => {
       const tags = f._tags || await readTags(f);
       if (!embedded && tags.picture) embedded = tags.picture;
       if (!album && tags.album) album = tags.album;
-      songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f, lyrics: tags.lyrics || f._lrc || '' });
+      songs.push({ title: tags.title || f.name.replace(/\.[^.]+$/, ''), artist: tags.artist || '', blob: f, lyrics: tags.lyrics || f._lrc || '',
+        cover: tags.picture ? (await squareCover(tags.picture)) || '' : '' });
     }
     const cdName = name || album || 'Meine Playlist';
     const cover = coverData || (coverFile && await squareCover(coverFile)) || (embedded && await squareCover(embedded)) || coverFromName(cdName);
